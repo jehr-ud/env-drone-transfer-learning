@@ -1,0 +1,8 @@
+setuptools
+transforms3d
+scipy
+matplotlib
+control
+gymnasium
+stable-baselines3
+tensorboard
