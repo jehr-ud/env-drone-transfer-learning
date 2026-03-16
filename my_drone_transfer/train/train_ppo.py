@@ -3,12 +3,41 @@ from my_drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEn
 
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
-env = MultiAgentObstacleEnv()
-env = DummyVecEnv([lambda: env])
-env = VecNormalize(env, norm_obs=True, norm_reward=True)
+from .training_logger import TrainingLoggerCallback
 
+# -------------------------------
+# Environment
+# -------------------------------
+env = DummyVecEnv([lambda: MultiAgentObstacleEnv()])
+
+env = VecNormalize(
+    env,
+    norm_obs=True,
+    norm_reward=True,
+    clip_obs=5.0
+)
+
+# -------------------------------
+# Agent
+# -------------------------------
 model = build_agent(env)
 
-model.learn(total_timesteps=1000000)
+# -------------------------------
+# Callback
+# -------------------------------
+callback = TrainingLoggerCallback()
 
+# -------------------------------
+# Training
+# -------------------------------
+model.learn(
+    total_timesteps=100,
+    callback=callback
+)
+
+# -------------------------------
+# Save model
+# -------------------------------
 model.save("models/ppo_multiagent")
+
+env.save("models/vec_normalize.pkl")

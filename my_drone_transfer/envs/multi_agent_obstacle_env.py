@@ -94,6 +94,9 @@ class MultiAgentObstacleEnv(BaseRLAviary):
             dtype=np.float32
         )
 
+        self.episode_reward = 0.0
+        self.step_counter = 0
+
     def _addObstacles(self):
 
         for pos, size, color_idx, obstacle_type in self.obstacles:
@@ -243,7 +246,6 @@ class MultiAgentObstacleEnv(BaseRLAviary):
         return np.array(obs, dtype=np.float32).flatten()
 
     def _computeReward(self):
-
         rewards = []
 
         for i in range(self.NUM_DRONES):
@@ -263,18 +265,14 @@ class MultiAgentObstacleEnv(BaseRLAviary):
             current_dist = np.linalg.norm(pos - self.goals[i])
             delta = self.prev_goal_dist[i] - current_dist
 
-            speed = np.linalg.norm(vel)
-
-            if delta >= 0:
-                reward += 5 * delta
+            if delta > 0:
+                reward += 3.0 * delta
             else:
-                reward += 8 * delta
+                reward += 5.0 * delta
 
-            reward += 1 / (current_dist + 0.3)
+            reward += 1.5 / (current_dist + 0.2)
 
-            # global speed penalty
-            if speed > 1.0:
-                reward -= speed * 2
+            self.prev_goal_dist[i] = current_dist
 
             # -------------------------------
             # Velocity alignment
@@ -284,28 +282,45 @@ class MultiAgentObstacleEnv(BaseRLAviary):
 
             vel_alignment = np.dot(vel, goal_dir)
 
-            reward += 2 * vel_alignment
+            reward += 1.5 * vel_alignment
 
             # -------------------------------
-            # Altitude alignment
+            # Speed penalty
+            # -------------------------------
+            speed = np.linalg.norm(vel)
+
+            if speed > 0.8:
+                reward -= speed * 2.0
+
+            # -------------------------------
+            # Altitude stabilization
             # -------------------------------
             z_error = abs(pos[2] - self.goals[i][2])
 
-            reward += 0.5 / (z_error + 0.05)
+            reward += 0.8 / (z_error + 0.1)
 
-            if z_error < 0.1:
-                reward += 10
+            if pos[2] < 0.7:
+                reward -= (0.7 - pos[2]) * 20
 
-            self.prev_goal_dist[i] = current_dist
-
-            # -------------------------------
-            # Fall penalization / hover reward
-            # -------------------------------
-            if pos[2] < 0.6:
-                reward -= (0.6 - pos[2]) * 20
-
-            if abs(pos[2] - self.goals[i][2]) < 0.2:
+            if 0.9 < pos[2] < 1.3:
                 reward += 2
+
+            # -------------------------------
+            # Strong attitude stabilization
+            # -------------------------------
+            roll = abs(state[7])
+            pitch = abs(state[8])
+
+            reward -= 2.0 * roll
+            reward -= 2.0 * pitch
+
+            # -------------------------------
+            # Angular velocity penalty
+            # -------------------------------
+            ang_vel = np.linalg.norm(state[13:16])
+
+            if ang_vel > 1.5:
+                reward -= ang_vel * 2.0
 
             # -------------------------------
             # Obstacle avoidance
@@ -323,17 +338,10 @@ class MultiAgentObstacleEnv(BaseRLAviary):
                     min_obstacle_dist = d
 
                 if d < 1.5:
-                    reward -= (1.5 - d) * 8
+                    reward -= (1.5 - d) * 10
 
-            # speed penalty only if obstacle nearby
-            if min_obstacle_dist < 1.5:
-                reward -= speed * 3
-
-            # -------------------------------
-            # Drone movement brusco
-            # -------------------------------
-            action_change = np.linalg.norm(self.last_action - self.prev_action)
-            reward -= 0.5 * action_change
+                    if speed > 0.5:
+                        reward -= speed * 3
 
             # -------------------------------
             # Drone separation
@@ -344,38 +352,26 @@ class MultiAgentObstacleEnv(BaseRLAviary):
                 reward -= (1.5 - d_drone) * 10
 
             # -------------------------------
-            # Stability penalty
-            # -------------------------------
-            roll = abs(state[7])
-            pitch_angle = abs(state[8])
-
-            reward -= 0.5 * (roll + pitch_angle)
-
-            # angular velocity penalty
-            ang_vel = np.linalg.norm(state[13:16])
-
-            reward -= 0.1 * ang_vel
-
-            # -------------------------------
-            # Goal bonus
+            # Goal bonus progressive
             # -------------------------------
             if current_dist < 0.5:
                 reward += 5
 
             if current_dist < 0.3:
-                reward += 15
+                reward += 10
 
             if current_dist < 0.15:
-                reward += 25
+                reward += 20
 
             rewards.append(reward)
 
-        self.prev_action = self.last_action.copy()
         return np.mean(rewards)
 
     def _computeTerminated(self):
 
-        # goal reached by all drones
+        # -------------------------------
+        # Goal reached by all drones
+        # -------------------------------
         goal_done = all(
             np.linalg.norm(self._getDroneStateVector(i)[0:3] - self.goals[i]) < 0.2
             for i in range(self.NUM_DRONES)
@@ -384,14 +380,27 @@ class MultiAgentObstacleEnv(BaseRLAviary):
         if goal_done:
             return True
 
-        # obstacle collision
+        # -------------------------------
+        # Per-drone safety checks
+        # -------------------------------
         for i in range(self.NUM_DRONES):
 
-            pos = self._getDroneStateVector(i)[0:3]
+            state = self._getDroneStateVector(i)
 
-            if pos[2] < 0.1:
+            pos = state[0:3]
+
+            roll = abs(state[7])
+            pitch = abs(state[8])
+
+            # excessive inclination only if really unstable
+            if roll > 1.3 or pitch > 1.3:
                 return True
 
+            # floor collision
+            if pos[2] < 0.08:
+                return True
+
+            # obstacle collision
             for obstacle, size, _, obstacle_type in self.obstacles:
 
                 if obstacle_type == "wall":
@@ -399,16 +408,18 @@ class MultiAgentObstacleEnv(BaseRLAviary):
                 else:
                     d = np.linalg.norm(pos - np.array(obstacle))
 
-                if d < 0.10:
+                if d < 0.08:
                     return True
 
-        # drone collision
+        # -------------------------------
+        # Drone-drone collision
+        # -------------------------------
         d_drone = np.linalg.norm(
             self._getDroneStateVector(0)[0:3] -
             self._getDroneStateVector(1)[0:3]
         )
 
-        if d_drone < 0.10:
+        if d_drone < 0.08:
             return True
 
         return False
@@ -418,7 +429,6 @@ class MultiAgentObstacleEnv(BaseRLAviary):
         return self.step_counter >= self.max_steps
 
     def _computeInfo(self):
-
         return {}
 
     def _distance_to_wall(self, pos, center, half_extents):
@@ -430,29 +440,29 @@ class MultiAgentObstacleEnv(BaseRLAviary):
         return np.linalg.norm([dx, dy, dz])
 
     def _preprocessAction(self, action):
-
         rpm = np.zeros((self.NUM_DRONES, 4))
 
         for i in range(self.NUM_DRONES):
 
-            ax = action[i*3 + 0]
-            ay = action[i*3 + 1]
-            az = action[i*3 + 2]
+            ax = np.clip(action[i*3 + 0], -1, 1)
+            ay = np.clip(action[i*3 + 1], -1, 1)
+            az = np.clip(action[i*3 + 2], -1, 1)
 
             hover = self.HOVER_RPM
 
-            delta = 0.15 * self.HOVER_RPM
+            thrust_delta = 0.05 * self.HOVER_RPM
+            tilt_delta = 0.01 * self.HOVER_RPM
 
-            thrust = hover + az * delta
+            thrust = hover + az * thrust_delta
 
             thrust = np.clip(
                 thrust,
-                0.8 * self.HOVER_RPM,
-                1.2 * self.HOVER_RPM
+                0.95 * self.HOVER_RPM,
+                1.05 * self.HOVER_RPM
             )
 
-            roll = ax * 0.05 * self.HOVER_RPM
-            pitch = ay * 0.05 * self.HOVER_RPM
+            roll = ax * tilt_delta
+            pitch = ay * tilt_delta
 
             rpm[i] = np.array([
                 thrust + roll - pitch,
@@ -464,14 +474,27 @@ class MultiAgentObstacleEnv(BaseRLAviary):
         return rpm
 
     def step(self, action):
+
         self.step_counter += 1
         self.last_action = action.copy()
 
-        return super().step(action)
+        obs, reward, terminated, truncated, info = super().step(action)
+
+        self.episode_reward += float(reward)
+
+        if terminated or truncated:
+            info["episode"] = {
+                "r": self.episode_reward,
+                "l": self.step_counter
+            }
+
+        return obs, reward, terminated, truncated, info
 
     def reset(self, seed=None, options=None):
         self.step_counter = 0
         self.prev_action = np.zeros(self.NUM_DRONES * 3)
+
+        self.episode_reward = 0.0
 
         obs, info = super().reset(seed=seed, options=options)
 
