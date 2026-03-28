@@ -2,53 +2,28 @@ from stable_baselines3 import PPO
 import torch
 
 def build_agent(env):
+    policy_kwargs = dict(
+        net_arch=dict(pi=[256, 256, 128], vf=[256, 256, 128]),
+        activation_fn=torch.nn.Tanh
+    )
 
     model = PPO(
         "MlpPolicy",
         env,
         verbose=1,
-
-        # -------------------------------
-        # Learning stability
-        # -------------------------------
-        learning_rate=3e-5,
-
-        # -------------------------------
-        # PPO rollout
-        # -------------------------------
-        n_steps=4096,
-        batch_size=256,
+        tensorboard_log="./ppo_drone_tensorboard/",
+        learning_rate=2e-4,
+        n_steps=2048,
+        batch_size=256,        # Aumentado para mayor estabilidad en multiaente
         n_epochs=10,
-
-        # -------------------------------
-        # Discounting
-        # -------------------------------
-        gamma=0.995,
+        gamma=0.99,
         gae_lambda=0.97,
-
-        # -------------------------------
-        # Exploration
-        # -------------------------------
-        ent_coef=0.002,
-
-        # -------------------------------
-        # PPO clipping
-        # -------------------------------
-        clip_range=0.12,
-
-        # -------------------------------
-        # Value function
-        # -------------------------------
+        ent_coef=0.005,        # Reducido ligeramente para evitar vibraciones excesivas
+        clip_range=0.15,
+        clip_range_vf=0.2,
         vf_coef=0.5,
         max_grad_norm=0.5,
-
-        # -------------------------------
-        # Policy network
-        # -------------------------------
-        policy_kwargs=dict(
-            net_arch=[256, 256],
-            activation_fn=torch.nn.Tanh
-        )
+        policy_kwargs=policy_kwargs,
+        device="auto"          # Asegura uso de GPU si está disponible
     )
-
     return model

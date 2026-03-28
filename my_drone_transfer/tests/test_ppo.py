@@ -1,148 +1,104 @@
+import numpy as np
+import pybullet as p
+import time
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
-
 from my_drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
-
-import numpy as np
-import time
 
 # -------------------------------
 # Configuration
 # -------------------------------
 NUM_EPISODES = 5
+MODEL_PATH = "models/ppo_drone_final"
+STATS_PATH = "models/vec_normalize.pkl"
 
 # -------------------------------
-# Environment
+# Environment Setup
 # -------------------------------
 env = DummyVecEnv([lambda: MultiAgentObstacleEnv(gui=True)])
 
-env = VecNormalize.load("models/vec_normalize.pkl", env)
-
+env = VecNormalize.load(STATS_PATH, env)
 env.training = False
 env.norm_reward = False
 
 # -------------------------------
-# Load model
+# Load Model
 # -------------------------------
-model = PPO.load("models/ppo_multiagent")
+model = PPO.load(MODEL_PATH)
 
 # -------------------------------
-# Metrics
+# Evaluation Loop
 # -------------------------------
-success = 0
-collisions = 0
-
+success_count = 0
 all_rewards = []
-all_distances = []
-all_lengths = []
 
-# -------------------------------
-# Evaluation loop
-# -------------------------------
 for ep in range(NUM_EPISODES):
-
-    print(f"\n==============================")
-    print(f"EPISODE {ep+1}")
-    print(f"==============================")
+    print(f"\n--- EPISODE {ep+1} ---")
 
     obs = env.reset()
-
+    done = False
+    step = 0
     episode_reward = 0
 
-    for step in range(1000):
+    raw_env = env.envs[0]
 
+    while not done:
+
+        current_dists = []
+        current_positions = []
+
+        # Acción
         action, _ = model.predict(obs, deterministic=True)
+        action = np.clip(action, -1, 1)
 
-        obs, reward, done, info = env.step(action)
+        obs, reward, dones, infos = env.step(action)
+
+        done = dones[0]
+        info = infos[0]
 
         episode_reward += reward[0]
 
-        real_env = env.envs[0]
+        for i in range(raw_env.NUM_DRONES):
+            pos = raw_env._getDroneStateVector(i)[0:3]
+            dist = np.linalg.norm(pos - raw_env.goals[i])
+            current_dists.append(dist)
+            current_positions.append(pos)
 
-        print(f"\nSTEP {step}")
-        print("ACTION:", action)
-        print("REWARD:", reward)
-
-        goal_reached = True
-        final_distances = []
-
-        for i in range(real_env.NUM_DRONES):
-
-            state = real_env._getDroneStateVector(i)
-
-            pos = state[0:3]
-            vz = state[12]
-
-            dist = np.linalg.norm(pos - real_env.goals[i])
-
-            final_distances.append(dist)
-
-            print(
-                f"Drone {i}: "
-                f"x={pos[0]:.2f} "
-                f"y={pos[1]:.2f} "
-                f"z={pos[2]:.2f} "
-                f"vz={vz:.2f} "
-                f"dist_goal={dist:.2f}"
+            # Dibujar líneas
+            color = [1, 0, 0] if i == 0 else [0, 0, 1]
+            p.addUserDebugLine(
+                current_positions[i],
+                raw_env.goals[i],
+                color,
+                lineWidth=2,
+                lifeTime=0.1,
+                physicsClientId=raw_env.CLIENT
             )
 
-            if dist >= 0.2:
-                goal_reached = False
-
-        # -------------------------------
-        # Goal reached
-        # -------------------------------
-        if goal_reached:
-
-            print("GOAL REACHED ✅")
-
-            success += 1
-
-            all_rewards.append(episode_reward)
-            all_distances.append(np.mean(final_distances))
-            all_lengths.append(step)
-
+        # SUCCESS
+        if info.get("is_success", 0) == 1:
+            print(f"SUCCESS ✅ Distancias finales: {np.round(current_dists, 3)}")
+            success_count += 1
             break
 
-        # -------------------------------
-        # Episode finished
-        # -------------------------------
-        if done[0]:
+        # END
+        if done:
+            print(f"END ❌ Step {step}")
+            print(f"Distancias: {np.round(current_dists, 3)}")
+            break 
+        
+        step += 1
+        time.sleep(1/48)
 
-            print("EPISODE FINISHED ⚠️")
-
-            crashed = False
-
-            for i in range(real_env.NUM_DRONES):
-
-                state = real_env._getDroneStateVector(i)
-
-                if state[2] < 0.1:
-                    print(f"Drone {i} crashed on floor")
-                    crashed = True
-
-            if crashed:
-                collisions += 1
-
-            all_rewards.append(episode_reward)
-            all_distances.append(np.mean(final_distances))
-            all_lengths.append(step)
-
-            break
-
-        real_env.render()
-
-        time.sleep(0.03)
+    all_rewards.append(episode_reward)
 
 # -------------------------------
-# Final metrics
+# RESULTS
 # -------------------------------
-print("\n==============================")
-print("FINAL EVALUATION RESULTS")
-print("==============================")
+print("\n" + "="*30)
+print(f"RESULTS OVER {NUM_EPISODES} EPISODES")
+print(f"Success Rate: {success_count/NUM_EPISODES * 100:.1f}%")
+print(f"Average Reward: {np.mean(all_rewards):.2f}")
+print("="*30)
 
-print(f"Success rate: {success / NUM_EPISODES:.2f}")
-print(f"Collision rate: {collisions / NUM_EPISODES:.2f}")
-print(f"Mean reward: {np.mean(all_rewards):.2f}")
-print(f"Mean final distance: {np.mean(all_distances):.2f}")
-print(f"Mean episode length: {np.mean(all_lengths):.2f}")
+env.close()

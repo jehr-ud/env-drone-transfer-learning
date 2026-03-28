@@ -1,34 +1,67 @@
-from my_drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
 import numpy as np
 import time
+from my_drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
 
 env = MultiAgentObstacleEnv(gui=True)
+obs, info = env.reset()
 
-obs, _ = env.reset()
+print("--- Test: Navegación hacia la meta ---")
 
-for step in range(1000):
+reached_once = [False] * env.NUM_DRONES
 
-    # acción neutra (hover esperado)
-    action = np.zeros(env.NUM_DRONES * 3, dtype=np.float32)
+for step in range(2000):
 
-    obs, reward, terminated, truncated, info = env.step(action)
-
-    print(f"\nSTEP {step}")
+    action = np.zeros((env.NUM_DRONES, 4), dtype=np.float32)
 
     for i in range(env.NUM_DRONES):
         state = env._getDroneStateVector(i)
+        pos = state[0:3]
 
-        z = state[2]
-        vz = state[12]
+        goal = env.goals[i]
 
-        print(f"Drone {i}: z={z:.3f}, vz={vz:.3f}")
+        # -------------------------------
+        # DIRECCIÓN HACIA LA META
+        # -------------------------------
+        direction = goal - pos
+        dist = np.linalg.norm(direction)
+
+        if dist > 1e-6:
+            direction = direction / dist
+
+        # -------------------------------
+        # CONTROL SIMPLE (clave)
+        # -------------------------------
+        action[i, 0:3] = direction   # vx, vy, vz hacia meta
+        action[i, 3] = 0.8           # potencia
+
+        # -------------------------------
+        # DETECTAR LLEGADA (DEBUG)
+        # -------------------------------
+        if dist < 0.3 and not reached_once[i]:
+            reached_once[i] = True
+            print(f"✅ Drone {i} LLEGÓ a la meta en step {step}")
+
+    obs, reward, terminated, truncated, info = env.step(action.flatten())
+
+    if step % 20 == 0:
+        print(f"\nSTEP {step}")
+        for i in range(env.NUM_DRONES):
+            pos = env._getDroneStateVector(i)[0:3]
+            dist = np.linalg.norm(pos - env.goals[i])
+            print(f"Drone {i} -> dist_to_goal: {dist:.3f} | reached: {env.reached[i]}")
 
     env.render()
+    time.sleep(1 / env.CTRL_FREQ)
 
-    time.sleep(1/240)   # velocidad realista
+    # -------------------------------
+    # FIN DEL EPISODIO
+    # -------------------------------
+    if terminated:
+        print("\n🎯 TODOS los drones llegaron a la meta")
+        break
 
-    if terminated or truncated:
-        print("Episode finished")
+    if truncated:
+        print("\n⚠️ Episodio truncado")
         break
 
 env.close()

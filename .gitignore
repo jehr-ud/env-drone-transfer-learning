@@ -91,3 +91,5 @@ htmlcov/
 *.swo
 
 *.csv
+
+ppo_drone_tensorboard/*
