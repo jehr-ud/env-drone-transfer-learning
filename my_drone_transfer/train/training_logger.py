@@ -33,8 +33,8 @@ class TrainingLoggerCallback(BaseCallback):
             self.model.save(path_model)
             
             # Guardar las estadísticas del VecNormalize (OBLIGATORIO)
-            if self.training_env is not None:
-                self.training_env.save(path_stats)
+            #if self.training_env is not None:
+            #    self.training_env.save(path_stats)
             
             if self.verbose > 0:
                 print(f"Checkpoint guardado en el paso {self.num_timesteps}")

@@ -12,6 +12,8 @@ pip install -r requirements.txt
 
 pip install --no-deps git+https://github.com/utiasDSL/gym-pybullet-drones.git
 
+pip install -e /Users/jorge/Documents/work-in-cloud/UD/PhD/plastic-transfer-learning
+
 pip install -e .
 
 python -c "import pybullet, gymnasium, stable_baselines3, transforms3d; print('✅ Environment ready')"

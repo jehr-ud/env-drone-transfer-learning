@@ -41,6 +41,7 @@ for step in range(2000):
             reached_once[i] = True
             print(f"✅ Drone {i} LLEGÓ a la meta en step {step}")
 
+    print(f"[DEBUG] action {action.flatten()}")
     obs, reward, terminated, truncated, info = env.step(action.flatten())
 
     if step % 20 == 0:

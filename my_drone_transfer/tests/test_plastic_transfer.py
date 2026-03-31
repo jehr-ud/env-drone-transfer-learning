@@ -1,29 +1,54 @@
 import numpy as np
 import pybullet as p
 import time
-from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+
+from plastic_transfer import PlasticTransfer
 from my_drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
 
-# -------------------------------
-# Configuration
-# -------------------------------
-NUM_EPISODES = 5
-MODEL_PATH = "models/ppo_drone_final"
-STATS_PATH = "models/vec_normalize.pkl"
 
 # -------------------------------
-# Environment Setup
+# CONFIG
+# -------------------------------
+NUM_EPISODES = 5
+MODEL_PATH = "models/plastic_transfer_model"
+
+
+# -------------------------------
+# ENV
 # -------------------------------
 env = MultiAgentObstacleEnv(gui=True)
 
-# -------------------------------
-# Load Model
-# -------------------------------
-model = PPO.load(MODEL_PATH, env=env)
 
 # -------------------------------
-# Evaluation Loop
+# INIT MODEL (IMPORTANTE)
+# -------------------------------
+obs_sample, _ = env.reset()
+
+obs_dim = 50   # ya lo calculamos
+action_dim = env.action_space.shape[0]
+
+input_size = obs_dim + action_dim + 1
+hidden_size = 128
+latent_size = 16
+
+def ppo_builder(env):
+    from stable_baselines3 import PPO
+    return PPO("MlpPolicy", env, verbose=0)
+
+pt = PlasticTransfer(
+    env=env,
+    ppo_builder=ppo_builder,
+    input_size=input_size,
+    hidden_size=hidden_size,
+    latent_size=latent_size,
+)
+
+# 🔥 cargar
+pt.load(MODEL_PATH)
+
+
+# -------------------------------
+# EVALUATION
 # -------------------------------
 success_count = 0
 all_rewards = []
@@ -36,59 +61,58 @@ for ep in range(NUM_EPISODES):
     step = 0
     episode_reward = 0
 
-    raw_env = env
-
     while not done:
 
         # -------------------------------
-        # Acción
+        # ACTION (IMPORTANTE)
         # -------------------------------
-        action, _ = model.predict(obs, deterministic=True)
+        action = pt.predict(obs)
 
         obs, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
 
         episode_reward += reward
 
+        # -------------------------------
+        # DEBUG DISTANCES
+        # -------------------------------
         current_dists = []
         current_positions = []
 
-        for i in range(raw_env.NUM_DRONES):
-            pos = raw_env._getDroneStateVector(i)[0:3]
-            dist = np.linalg.norm(pos - raw_env.goals[i])
+        for i in range(env.NUM_DRONES):
+            pos = env._getDroneStateVector(i)[0:3]
+            dist = np.linalg.norm(pos - env.goals[i])
+
             current_dists.append(dist)
             current_positions.append(pos)
 
-            # Dibujar líneas
             color = [1, 0, 0] if i == 0 else [0, 0, 1]
+
             p.addUserDebugLine(
                 current_positions[i],
-                raw_env.goals[i],
+                env.goals[i],
                 color,
                 lineWidth=2,
                 lifeTime=0.1,
-                physicsClientId=raw_env.CLIENT
+                physicsClientId=env.CLIENT
             )
 
-        # DEBUG ligero
+        # -------------------------------
+        # LOG
+        # -------------------------------
         if step % 50 == 0:
             print(f"Step {step} | reward {reward:.3f} | dist {np.round(current_dists,2)}")
 
-        # SUCCESS REAL
+        # -------------------------------
+        # SUCCESS
+        # -------------------------------
         if info.get("is_success", 0) == 1:
             print(f"SUCCESS ✅ Distancias finales: {np.round(current_dists, 3)}")
             success_count += 1
             break
 
-        # TERMINATED (pero no éxito)
-        if terminated:
-            print(f"TERMINATED ⚠️ Step {step}")
-            print(f"Distancias: {np.round(current_dists, 3)}")
-            break
-
-        # TRUNCATED
-        if truncated:
-            print(f"TRUNCATED ❌ Step {step}")
+        if done:
+            print(f"END ❌ Step {step}")
             print(f"Distancias: {np.round(current_dists, 3)}")
             break
 
@@ -96,6 +120,7 @@ for ep in range(NUM_EPISODES):
         time.sleep(1/48)
 
     all_rewards.append(episode_reward)
+
 
 # -------------------------------
 # RESULTS
