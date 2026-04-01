@@ -6,32 +6,69 @@ import pybullet as p
 from gymnasium import spaces
 
 from gym_pybullet_drones.envs.BaseRLAviary import BaseRLAviary
-from gym_pybullet_drones.utils.enums import ObservationType, ActionType, Physics, DroneModel
+from gym_pybullet_drones.utils.enums import (
+    ObservationType,
+    ActionType,
+    Physics,
+    DroneModel
+)
 from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 
 
 class MultiAgentObstacleEnv(BaseRLAviary):
 
-    def __init__(self, obs=ObservationType.KIN, act=ActionType.VEL, gui=False):
+    def __init__(
+        self,
+        obs=ObservationType.KIN,
+        act=ActionType.VEL,
+        gui=False,
+        with_obstacles=False,
+        debug=False
+    ):
         self.colors = [
             [0.86, 0.37, 0.34, 1], [0.35, 0.70, 0.90, 1],
             [0.50, 0.78, 0.50, 1], [0.95, 0.77, 0.35, 1],
             [0.72, 0.56, 0.87, 1], [0.60, 0.60, 0.60, 1]
         ]
 
-        # Definición de metas (Goals)
+        # goals
         self.goals = np.array([
-            [2.5, 2.5, 1.8],
-            [-2.5, -2.5, 1.8]
+            [2.5, 3.5, 1.8],
+            [-2.5, -3.5, 1.8]
         ])
 
         self.obstacles = []
+
+        self.with_obstacles = with_obstacles
+
+        if with_obstacles:
+            self.obstacles = [
+                # Position, Radius_RL, Size_PyBullet, Type
+                # CUBES (Radius = Size * 0.05)
+                ([0, 0, 1.5],     0.15, 3, "cube"),
+                ([0, 1.5, 1.0],   0.10, 2, "cube"),
+                ([0, -1.5, 1.0],  0.10, 2, "cube"),
+                ([1.5, 0.8, 1.0], 0.10, 2, "cube"),
+                ([-1.5, -0.8, 1.0], 0.10, 2, "cube"),
+                ([1.2, -2.0, 1.0], 0.10, 2, "cube"),
+                ([-1.2, 2.0, 1.0], 0.10, 2, "cube"),
+
+                # CYLINDERS (Fixed radius = 0.25, Size is the height)
+                ([2.2, 1.5, 2.0],   0.25, 4, "cylinder"),
+                ([-2.2, -1.5, 2.0], 0.25, 2, "cylinder"),
+                ([2.0, -1.5, 2.0],  0.25, 4, "cylinder"),
+                ([-2.0, 1.5, 2.0],  0.25, 2, "cylinder"),
+                ([0.8, 2.5, 2.0],   0.25, 2, "cylinder"),
+                ([-0.8, -2.5, 2.0], 0.25, 3, "cylinder")
+            ]
+
         self.NUM_DRONES = 1
         self.ctrl = [DSLPIDControl(drone_model=DroneModel.CF2X) for i in range(self.NUM_DRONES)]
 
+        self.debug = debug
         self.reward_log_path = "reward_debug.csv"
 
-        # crear archivo con header
+        # debug file
         if not os.path.exists(self.reward_log_path):
             with open(self.reward_log_path, mode="w", newline="") as f:
                 writer = csv.writer(f)
@@ -56,14 +93,14 @@ class MultiAgentObstacleEnv(BaseRLAviary):
             act=act
         )
 
-        # Configuración de límites y estados
+        # Setting limits and states
         self.EPISODE_LEN_SEC = 120
         self.step_counter = 0
         self.episode_reward = 0.0
         self.reached = [False] * self.NUM_DRONES
         self.prev_goal_dist = np.zeros(self.NUM_DRONES)
         
-        # Espacios de búsqueda (Gymnasium)
+        # Observaions spaces (Gymnasium)
         self.observation_space = spaces.Dict({
             "goal": spaces.Box(-1, 1, shape=(self.NUM_DRONES, 3), dtype=np.float32),
             "velocity": spaces.Box(-1, 1, shape=(self.NUM_DRONES, 3), dtype=np.float32),
@@ -71,10 +108,10 @@ class MultiAgentObstacleEnv(BaseRLAviary):
             "yaw": spaces.Box(-1, 1, shape=(self.NUM_DRONES, 2), dtype=np.float32),
             "angular_velocity": spaces.Box(-1, 1, shape=(self.NUM_DRONES, 3), dtype=np.float32),
             "other": spaces.Box(-1, 1, shape=(self.NUM_DRONES, 3), dtype=np.float32),
-            "obstacles": spaces.Box(-1, 1, shape=(self.NUM_DRONES, 9), dtype=np.float32),
+            "obstacles": spaces.Box(-1, 1, shape=(self.NUM_DRONES, 12), dtype=np.float32)
         })
 
-        radius = 1.5  # máximo 2 al inicio
+        radius = 1.5  # maximum 2 at the start
 
         noise = np.random.uniform(-radius, radius, size=(1, 3))
         self.INIT_XYZS = self.goals[:1] + noise
@@ -175,58 +212,69 @@ class MultiAgentObstacleEnv(BaseRLAviary):
             vel = state[10:13]
             ang_vel = state[13:16]
 
-            # 1. Goal Relativo (Normalizado)
+            # 1. Relative Goal (Normalized)
             goal_rel = (self.goals[i] - pos) / 5.0
             goal_list.append(np.clip(goal_rel, -1, 1))
 
-            # 2. Velocidad Lineal
+            # 2. Linear Speed
             vel_list.append(np.clip(vel / 3.0, -1, 1))
 
-            # 3. Actitud (Roll y Pitch)
+            # 3. Attitude (Roll and Pitch)
             rp_list.append(np.clip(rpy[0:2] / 0.5, -1, 1))
 
-            # 4. Yaw (Representación Sin/Cos para evitar discontinuidad en 2pi)
+            # 4. Yaw (Sin/Cos representation to avoid discontinuity at 2pi)
             yaw_list.append([np.sin(rpy[2]), np.cos(rpy[2])])
 
-            # 5. Velocidad Angular
+            # 5. Angular Velocity
             ang_vel_list.append(np.clip(ang_vel / 10.0, -1, 1))
 
-            # 6. Relación con el otro dron
-            # Ajustado para ser dinámico si añades más drones después
-
+            # 6. Relationship with the other drone
             if self.NUM_DRONES > 1:
                 other_idx = 1 - i 
                 other_pos = all_states[other_idx][0:3]
                 other_rel = (other_pos - pos) / 5.0
                 other_list.append(np.clip(other_rel, -1, 1))
             else:
-                # 🔥 IMPORTANTE: dummy value consistente
                 other_list.append(np.zeros(3))
 
-            # 7. Obstáculos (Los 3 más cercanos)
-            rel_obstacles_flat = []
+            # 7. Obstacles (The 3 closest)
+
+            current_drone_obs_flat = []
             if len(self.obstacles) > 0:
-                rel_obs = []
+                obs_temp_list = []
                 for obs_data in self.obstacles:
                     obs_pos = np.array(obs_data[0])
-                    r_pos = (obs_pos - pos) / 5.0
-                    dist = np.linalg.norm(r_pos)
-                    rel_obs.append(r_pos) # Guardamos el vector relativo
+                    size = obs_data[1]
+                    
+                    # Relative vector and Euclidean distance to the center
+                    r_vector = (obs_pos - pos)
+                    dist_to_center = np.linalg.norm(r_vector)
+                    
+                    # We save the info to sort by actual proximity
+                    obs_temp_list.append({
+                        "rel_vec": np.clip(r_vector / 5.0, -1, 1),     # Normalized to the viewing range (5m)
+                        "size": np.clip(size / 5.0, 0, 1),            # Standardized size
+                        "dist": dist_to_center
+                    })
 
-                # Ordenar por distancia (norma del vector)
-                rel_obs.sort(key=lambda x: np.linalg.norm(x))
+                # Sort by actual distance to center
+                obs_temp_list.sort(key=lambda x: x["dist"])
 
                 for j in range(3):
-                    if j < len(rel_obs):
-                        rel_obstacles_flat.extend(rel_obs[j])
+                    if j < len(obs_temp_list):
+                        item = obs_temp_list[j]
+                        # We add x, y, z (relative) + the size
+                        current_drone_obs_flat.extend(item["rel_vec"]) 
+                        current_drone_obs_flat.append(item["size"])
                     else:
-                        rel_obstacles_flat.extend([1.0, 1.0, 1.0]) # Padding
+                        # Padding: Far position (1,1,1) and size 0
+                        current_drone_obs_flat.extend([1.0, 1.0, 1.0, 0.0])
             else:
-                rel_obstacles_flat = [1.0] * 9 # Padding si no hay obstáculos
+                current_drone_obs_flat = [0.0] * 12 # Padding if there are no obstacles
 
-            obs_list.append(rel_obstacles_flat)
+            obs_list.append(current_drone_obs_flat)
 
-        # Retornar el diccionario con shapes (NUM_DRONES, N)
+        # Return the dictionary with shapes (NUM_DRONES, N)
         return {
             "goal": np.array(goal_list, dtype=np.float32),
             "velocity": np.array(vel_list, dtype=np.float32),
@@ -236,6 +284,28 @@ class MultiAgentObstacleEnv(BaseRLAviary):
             "other": np.array(other_list, dtype=np.float32),
             "obstacles": np.array(obs_list, dtype=np.float32),
         }
+
+    def _is_pos_safe(self, pos, margin=0.3):
+        """
+        Check if a position is at a safe distance from all obstacles.
+        """
+        for obs_pos_list, size, _, obs_type in self.obstacles:
+            obs_pos = np.array(obs_pos_list)
+            dist = np.linalg.norm(pos - obs_pos)
+            
+            if obs_type == "cube":
+                # Approximation by surrounding sphere radius for cubes
+                # size is the global scaling of the urdf cube_small
+                safe_dist = (size * 0.1) + margin 
+            elif obs_type == "cylinder":
+                # The radius of the cylinder is 0.25 according to the definition of obstacles.
+                safe_dist = 0.25 + margin
+            else:
+                safe_dist = margin
+                
+            if dist < safe_dist:
+                return False
+        return True
 
     def _computeReward(self):
 
@@ -252,27 +322,115 @@ class MultiAgentObstacleEnv(BaseRLAviary):
             dist = np.linalg.norm(self.goals[i] - pos)
             speed = np.linalg.norm(vel)
 
-            # componentes
+            # =====================================================
+            # 1. PROGRESS (VERY IMPORTANT - DOMINANT)
+            # =====================================================
             progress = self.prev_goal_dist[i] - dist
-            progress_r = 3.0 * progress
+            progress_r = 20.0 * progress
 
-            distance_r = 1.0 / (1.0 + dist)
+            # =====================================================
+            # 2. DISTANCE SHAPING
+            # =====================================================
+            distance_r = 2.0 / (1.0 + dist)
 
+            # =====================================================
+            # 3. EXTRA REWARD NEAR THE FINISH LINE
+            # =====================================================
+            goal_shaping = 0.0
+            if dist < 1.0:
+                goal_shaping = 2.0 * (1.0 - dist)
+
+            # =====================================================
+            # 4. CORRECT DIRECTION (ANTI-ZIGZAG)
+            # =====================================================
+            goal_dir = self.goals[i] - pos
+            goal_dir = goal_dir / (np.linalg.norm(goal_dir) + 1e-6)
+
+            vel_dir = vel / (np.linalg.norm(vel) + 1e-6)
+
+            alignment = np.dot(goal_dir, vel_dir)
+            direction_bonus = 0.5 * alignment  # [-0.5, 0.5]
+
+            # =====================================================
+            # 5. PENALIZE STILLNESS
+            # =====================================================
+            movement_penalty = 0.0
+            if speed < 0.05:
+                movement_penalty = -0.5
+
+            # =====================================================
+            # 6. SPEED CONTROL NEAR THE FINISH LINE
+            # =====================================================
             speed_penalty = 0.0
             if dist < 1.0:
-                speed_penalty = -0.3 * speed
+                speed_penalty = -0.1 * speed
 
+            # =====================================================
+            # 7. BONUS FOR ARRIVING
+            # =====================================================
             bonus = 0.0
-            if dist < 0.25 and speed < 0.1:
-                bonus = 5.0
+            if dist < 0.3:
+                bonus = 10.0
                 self.reached[i] = True
 
+            # =====================================================
+            # 8. OBSTACLES (SMOOTH AND STABLE)
+            # =====================================================
+            obstacle_penalty = 0.0
+            min_dist = float("inf")
+
+            for obs in self.obstacles:
+                obs_pos = np.array(obs[0])
+                obs_radius = obs[1]
+                
+                dist_to_center = np.linalg.norm(pos - obs_pos)
+                d_to_surface = dist_to_center - obs_radius
+                
+                if d_to_surface < min_dist:
+                    min_dist = d_to_surface
+
+            # Penalty if you approach within 0.5m of the surface
+            if min_dist < 0.5:
+                # We use a quadratic function so that it's smooth at the beginning and strong at the end
+                obstacle_penalty = -2.0 * (1.0 - (np.clip(min_dist, 0, 0.5) / 0.5))**2
+
+            # =====================================================
+            # 9. HEAVY COLLISION
+            # =====================================================
+            collision_penalty = 0.0
+            if min_dist < 0.15:
+                collision_penalty = -10.0
+
+            # =====================================================
+            # 10. ALTURA (ANTI-CRASH)
+            # =====================================================
+            height_penalty = 0.0
+            if pos[2] < 0.2:
+                height_penalty = -2.0
+
+            # =====================================================
+            # 11. TIME PENALTY
+            # =====================================================
             time_penalty = -0.01
 
-            reward = progress_r + distance_r + speed_penalty + bonus + time_penalty
+            # =====================================================
+            # TOTAL
+            # =====================================================
+            reward = (
+                progress_r
+                + distance_r
+                + goal_shaping
+                + direction_bonus
+                + movement_penalty
+                + speed_penalty
+                + bonus
+                + obstacle_penalty
+                + collision_penalty
+                + height_penalty
+                + time_penalty
+            )
 
             total_reward += reward
-
             self.prev_goal_dist[i] = dist
 
             reward_info.append({
@@ -280,31 +438,18 @@ class MultiAgentObstacleEnv(BaseRLAviary):
                 "dist": dist,
                 "progress": progress_r,
                 "distance_reward": distance_r,
+                "goal_shaping": goal_shaping,
+                "direction_bonus": direction_bonus,
+                "movement_penalty": movement_penalty,
                 "speed_penalty": speed_penalty,
                 "bonus": bonus,
-                "time_penalty": time_penalty,
+                "obstacle_penalty": obstacle_penalty,
+                "collision_penalty": collision_penalty,
+                "height_penalty": height_penalty,
                 "total": reward
             })
 
-        # 🔥 GUARDAR para info()
         self._last_reward_info = reward_info
-
-        with open(self.reward_log_path, mode="a", newline="") as f:
-            writer = csv.writer(f)
-
-            for r in reward_info:
-                writer.writerow([
-                    self.step_counter,
-                    r["drone"],
-                    r["dist"],
-                    r["progress"],
-                    r["distance_reward"],
-                    r["speed_penalty"],
-                    r["bonus"],
-                    r["time_penalty"],
-                    r["total"]
-                ])
-
 
         return total_reward / self.NUM_DRONES
 
@@ -331,26 +476,26 @@ class MultiAgentObstacleEnv(BaseRLAviary):
             # -------------------------
             # 2. DEBUG STATE
             # -------------------------
-            # (solo cada 50 pasos para no saturar)
+            # (only every 50 steps to avoid saturation)
             if self.step_counter % 50 == 0:
                 print(f"[DEBUG] Drone {i} | pos={pos} | dist={dist:.2f} | z={pos[2]:.2f} | roll={roll:.2f} | pitch={pitch:.2f}")
 
             # -------------------------
-            # 3. CRASH: ALTURA
+            # 3. CRASH: HEIGHT
             # -------------------------
             if pos[2] < 0.05:
                 print(f"[TERMINATED] Drone {i} crashed (low altitude): z={pos[2]:.3f}")
                 return True
 
             # -------------------------
-            # 4. CRASH: ORIENTACIÓN
+            # 4. CRASH: ORIENTATION
             # -------------------------
             if abs(roll) > 1.2 or abs(pitch) > 1.2:
                 print(f"[TERMINATED] Drone {i} unstable: roll={roll:.2f}, pitch={pitch:.2f}")
                 return True
 
             # -------------------------
-            # 5. OBSTÁCULOS (opcional debug)
+            # 5. OBSTACLES
             # -------------------------
             for obs in self.obstacles:
                 obs_pos = np.array(obs[0])
@@ -394,7 +539,6 @@ class MultiAgentObstacleEnv(BaseRLAviary):
                 print(f"[TRUNCATED] Drone {i} out of bounds: pos={pos}")
                 return True
 
-            # debug periódico
             if self.step_counter % 50 == 0:
                 print(f"[DEBUG-TRUNC] Drone {i} pos={pos}")
 
@@ -407,7 +551,6 @@ class MultiAgentObstacleEnv(BaseRLAviary):
             print(f"[TRUNCATED] Time limit reached: {elapsed_time:.2f}s / {self.EPISODE_LEN_SEC}s")
             return True
 
-        # debug tiempo
         if self.step_counter % 100 == 0:
             print(f"[DEBUG-TIME] step={self.step_counter} time={elapsed_time:.2f}s")
 
@@ -419,16 +562,7 @@ class MultiAgentObstacleEnv(BaseRLAviary):
             "reward_breakdown": getattr(self, "_last_reward_info", None)
         }
 
-    def _distance_to_wall(self, pos, center, half_extents):
-
-        dx = max(abs(pos[0] - center[0]) - half_extents[0], 0)
-        dy = max(abs(pos[1] - center[1]) - half_extents[1], 0)
-        dz = max(abs(pos[2] - center[2]) - half_extents[2], 0)
-
-        return np.linalg.norm([dx, dy, dz])
-
     def _preprocessAction(self, action):
-        # Re-ajuste de tu lógica de control
         action = action.reshape(self.NUM_DRONES, 4)
         rpm = np.zeros((self.NUM_DRONES, 4))
 
@@ -436,7 +570,7 @@ class MultiAgentObstacleEnv(BaseRLAviary):
             state = self._getDroneStateVector(k)
             pos, vel = state[0:3], state[10:13]
             
-            # Dirección y velocidad escalada
+            # Direction and climbing speed
             target_v = np.clip(action[k, 0:3], -1, 1)
             speed_factor = (action[k, 3] + 1) / 2 # [0, 1]
             target_vel = (target_v * 0.5) * speed_factor 
@@ -450,7 +584,7 @@ class MultiAgentObstacleEnv(BaseRLAviary):
                 cur_vel=vel,
                 cur_ang_vel=state[13:16],
                 target_pos=target_pos,
-                target_rpy=np.array([0, 0, state[9]]), # Mantener yaw actual
+                target_rpy=np.array([0, 0, state[9]]), # Maintain current yaw
                 target_vel=target_vel
             )
             rpm[k, :] = rpm_k
@@ -465,12 +599,44 @@ class MultiAgentObstacleEnv(BaseRLAviary):
     def reset(self, seed=None, options=None):
         self.step_counter = 0
         self.episode_reward = 0.0
-        # Reset de posiciones con el ruido que definiste
         noise = np.random.uniform(-0.2, 0.2, size=(self.NUM_DRONES, 3))
         self.INIT_XYZS = np.array([[0, -1.0, 1.2], [0, 1.0, 1.2]]) + noise
         self.reached = [False] * self.NUM_DRONES
-        return super().reset(seed=seed, options=options)
 
+        
+        new_initial_xyzs = []
+    
+        for i in range(self.NUM_DRONES):
+            found_safe_pos = False
+            attempts = 0
+            
+            while not found_safe_pos and attempts < 100:
+                # Generate random position within a range (example: x and y between -3 and 3)
+                random_pos = np.array([
+                    np.random.uniform(-3, 3),
+                    np.random.uniform(-3, 3),
+                    1.2 # Fixed takeoff height
+                ])
+                
+                if self._is_pos_safe(random_pos):
+                    new_initial_xyzs.append(random_pos)
+                    found_safe_pos = True
+                attempts += 1
+                
+            # If it fails 100 times (map is very full), force a known position
+            if not found_safe_pos:
+                new_initial_xyzs.append(np.array([0, -2.0, 1.2]))
+
+        self.INIT_XYZS = np.array(new_initial_xyzs)
+
+        obs, info = super().reset(seed=seed, options=options)
+
+        for i in range(self.NUM_DRONES):
+            pos = self._getDroneStateVector(i)[0:3]
+            self.prev_goal_dist[i] = np.linalg.norm(self.goals[i] - pos)
+
+        return obs, info
+    
     def _addGoals(self):
 
         goal_colors = [
@@ -488,22 +654,22 @@ class MultiAgentObstacleEnv(BaseRLAviary):
                 physicsClientId=self.CLIENT
             )
             
-            # 2. Creamos el cuerpo en el mundo SIN forma de colisión
+            # 2. We created the body in the world WITHOUT collision form
             p.createMultiBody(
-                baseMass=0, # Masa 0 para que sea estático
-                baseCollisionShapeIndex=-1, # <--- IMPORTANTE: -1 significa SIN COLISIÓN
+                baseMass=0, # Zero mass so that it is static
+                baseCollisionShapeIndex=-1, #  -1 means NO COLLISION
                 baseVisualShapeIndex=visual_sphere,
                 basePosition=goal,
                 physicsClientId=self.CLIENT
             )
 
-            #p.addUserDebugText(
-            #    text=labels[i],
-            #    textPosition=[goal[0], goal[1], goal[2] + 0.4],
-            #    textColorRGB=goal_colors[i][:3],
-            #    textSize=1.5,
-            #    physicsClientId=self.CLIENT
-            #)
+            p.addUserDebugText(
+                text=labels[i],
+                textPosition=[goal[0], goal[1], goal[2] + 0.4],
+                textColorRGB=goal_colors[i][:3],
+                textSize=1.5,
+                physicsClientId=self.CLIENT
+            )
 
     def _colorDrones(self):
 

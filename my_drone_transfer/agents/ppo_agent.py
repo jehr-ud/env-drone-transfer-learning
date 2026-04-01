@@ -15,7 +15,7 @@ def build_agent(env):
         env,
         verbose=1,
         learning_rate=3e-4,
-        n_steps=2048,
+        n_steps=4096,
         batch_size=512,
         gamma=0.99,
         gae_lambda=0.95,

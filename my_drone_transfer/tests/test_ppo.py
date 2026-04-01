@@ -10,12 +10,11 @@ from my_drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEn
 # -------------------------------
 NUM_EPISODES = 5
 MODEL_PATH = "models/ppo_drone_final"
-STATS_PATH = "models/vec_normalize.pkl"
 
 # -------------------------------
 # Environment Setup
 # -------------------------------
-env = MultiAgentObstacleEnv(gui=True)
+env = MultiAgentObstacleEnv(gui=True, with_obstacles=True)
 
 # -------------------------------
 # Load Model
