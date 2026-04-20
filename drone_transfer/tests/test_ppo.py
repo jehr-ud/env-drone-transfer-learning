@@ -1,9 +1,10 @@
+import time
+
+from stable_baselines3 import PPO
 import numpy as np
 import pybullet as p
-import time
-from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
-from my_drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
+
+from drone_transfer.envs.single_agent_obstacle_env import SingleAgentObstacleEnv
 
 # -------------------------------
 # Configuration
@@ -14,7 +15,7 @@ MODEL_PATH = "models/ppo_drone_final"
 # -------------------------------
 # Environment Setup
 # -------------------------------
-env = MultiAgentObstacleEnv(gui=True, with_obstacles=True)
+env = SingleAgentObstacleEnv(gui=True, with_obstacles=True)
 
 # -------------------------------
 # Load Model

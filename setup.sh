@@ -1,19 +1,75 @@
 #!/bin/bash
 
+set -e  # 🔥 para que falle si algo sale mal
+
+echo "🔄 Activating conda env..."
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate drone_transfer
 
-pip install --upgrade pip setuptools wheel
+# -------------------------------
+# Clean broken setuptools (fix distutils bug)
+# -------------------------------
+echo "🧹 Cleaning broken setuptools..."
 
+SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
+
+rm -f $SITE_PACKAGES/distutils-precedence.pth || true
+
+# -------------------------------
+# Core tools (ONLY pip)
+# -------------------------------
+echo "⬆️ Upgrading core tools..."
+pip install --upgrade pip wheel
+pip install --force-reinstall setuptools
+
+# -------------------------------
+# System deps (conda only where needed)
+# -------------------------------
+echo "📦 Installing system dependencies..."
 conda install -c conda-forge pybullet -y
-conda install setuptools -y
 
+# -------------------------------
+# Install requirements
+# -------------------------------
+echo "📦 Installing Python requirements..."
 pip install -r requirements.txt
 
+# -------------------------------
+# RLlib (MAPPO)
+# -------------------------------
+echo "🤖 Installing RLlib..."
+pip install "ray[rllib]"
+
+# -------------------------------
+# Gym PyBullet Drones
+# -------------------------------
+echo "🚁 Installing gym-pybullet-drones..."
 pip install --no-deps git+https://github.com/utiasDSL/gym-pybullet-drones.git
 
+# -------------------------------
+# Your packages
+# -------------------------------
+echo "📦 Installing local packages..."
 pip install -e /Users/jorge/Documents/work-in-cloud/UD/PhD/plastic-transfer-learning
-
 pip install -e .
 
-python -c "import pybullet, gymnasium, stable_baselines3, transforms3d; print('✅ Environment ready')"
+# -------------------------------
+# Fix TensorBoard (important)
+# -------------------------------
+echo "📊 Fixing TensorBoard..."
+pip install --upgrade tensorboard
+
+# -------------------------------
+# Final test
+# -------------------------------
+echo "🧪 Testing environment..."
+
+python - <<EOF
+import pkg_resources
+import pybullet
+import gymnasium
+import ray
+from ray.rllib.algorithms.ppo import PPOConfig
+
+print("✅ Environment ready with RLlib + MAPPO")
+EOF

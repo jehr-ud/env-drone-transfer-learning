@@ -15,4 +15,4 @@ open http://localhost:6006
 echo "Launching training..."
 
 export PYTHONPATH=$PYTHONPATH:$(pwd)
-python -m my_drone_transfer.train.train_ppo
+python -m drone_transfer.train.train_ppo

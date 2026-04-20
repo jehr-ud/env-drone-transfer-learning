@@ -1,6 +1,6 @@
 import numpy as np
 import time
-from my_drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
+from drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
 
 env = MultiAgentObstacleEnv(gui=True)
 obs, info = env.reset()

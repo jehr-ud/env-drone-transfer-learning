@@ -10,4 +10,4 @@ export OMP_NUM_THREADS=1
 
 echo "Running plastic_transfer test..."
 
-python -m my_drone_transfer.tests.test_plastic_transfer
+python -m drone_transfer.tests.test_plastic_transfer

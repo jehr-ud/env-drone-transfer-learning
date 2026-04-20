@@ -8,6 +8,6 @@ conda activate drone_transfer
 export KMP_DUPLICATE_LIB_OK=TRUE
 export OMP_NUM_THREADS=1
 
-echo "Running PPO test..."
+echo "Running MAPPO test..."
 
-python -m drone_transfer.tests.test_ppo
+python -m drone_transfer.tests.test_mappo

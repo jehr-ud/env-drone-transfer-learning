@@ -15,9 +15,9 @@ The project includes:
 ## Project Structure
 
 ```text id="o2r9q1"
-my_drone_transfer/
+drone_transfer/
 │
-├── my_drone_transfer/
+├── drone_transfer/
 │   ├── envs/
 │   │   └── multi_agent_obstacle_env.py
 │   │
@@ -114,7 +114,7 @@ This launches PPO training automatically.
 You can also run:
 
 ```bash id="v1y9d7"
-python -m my_drone_transfer.train.train_ppo
+python -m drone_transfer.train.train_ppo
 ```
 
 ---

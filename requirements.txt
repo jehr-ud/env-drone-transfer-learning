@@ -4,7 +4,7 @@ scipy
 matplotlib
 control
 gymnasium
-stable-baselines3
-stable-baselines3[extra]
 tensorboard
 pandas
+ray[rllib]
+torch

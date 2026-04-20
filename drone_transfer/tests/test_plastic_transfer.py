@@ -3,8 +3,8 @@ import pybullet as p
 import time
 
 from plastic_transfer import PlasticTransfer
-from my_drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
-
+from drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
+from drone_transfer.agents.ppo_agent import build_agent
 
 # -------------------------------
 # CONFIG
@@ -16,7 +16,7 @@ MODEL_PATH = "models/plastic_transfer_model"
 # -------------------------------
 # ENV
 # -------------------------------
-env = MultiAgentObstacleEnv(gui=True)
+env = MultiAgentObstacleEnv(gui=True, with_obstacles=True)
 
 
 # -------------------------------
@@ -24,28 +24,14 @@ env = MultiAgentObstacleEnv(gui=True)
 # -------------------------------
 obs_sample, _ = env.reset()
 
-obs_dim = 50   # ya lo calculamos
-action_dim = env.action_space.shape[0]
-
-input_size = obs_dim + action_dim + 1
-hidden_size = 128
-latent_size = 16
-
-def ppo_builder(env):
-    from stable_baselines3 import PPO
-    return PPO("MlpPolicy", env, verbose=0)
-
 pt = PlasticTransfer(
     env=env,
-    ppo_builder=ppo_builder,
-    input_size=input_size,
-    hidden_size=hidden_size,
-    latent_size=latent_size,
+    ppo_builder=build_agent,
+    hidden_size=128,
+    latent_size=16,
 )
 
-# 🔥 cargar
 pt.load(MODEL_PATH)
-
 
 # -------------------------------
 # EVALUATION
