@@ -558,13 +558,13 @@ class MultiAgentObstacleEnv(BaseRLAviary, MultiAgentEnv):
             # =========================
             speed = (action[k, 3] + 1)
 
-            max_speed = 1.5   # 🔥 antes 0.2 → MUY bajo
+            max_speed = 1.5
             target_vel = direction * speed * max_speed
 
             # =========================
             # 3. TARGET POS (MEJOR ESCALA)
             # =========================
-            target_pos = pos + target_vel * 0.5   # 🔥 NO usar timestep
+            target_pos = pos + target_vel * 0.5
 
             # =========================
             # 4. CONTROL PID

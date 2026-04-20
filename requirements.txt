@@ -8,3 +8,5 @@ tensorboard
 pandas
 ray[rllib]
 torch
+stable-baselines3
+stable-baselines3[extra]

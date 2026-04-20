@@ -1,12 +1,9 @@
 from plastic_transfer import PlasticTransfer
 from drone_transfer.agents.ppo_agent import build_agent
 
-from drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
+from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 
-env = MultiAgentObstacleEnv(config={
-    "gui":False, 
-    "with_obstacles":True
-})
+env = SingleDroneEnv(gui=False, with_obstacles=True)
 
 pt = PlasticTransfer(
     env=env,

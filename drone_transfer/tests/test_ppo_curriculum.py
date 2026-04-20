@@ -12,12 +12,13 @@ from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 # CONFIG
 # -------------------------------
 NUM_EPISODES = 20
-MODEL_PATH = "models/ppo_drone_simple"
+MODEL_PATH = "models/ppo_curriculum_final"
 
-CSV_FILE = "evaluation_results.csv"
+CSV_FILE = "evaluation_comparison.csv"
+METHOD_NAME = "ppo_curriculum"
 
 # -------------------------------
-# ENV
+# ENV (FINAL TASK)
 # -------------------------------
 env = SingleDroneEnv(gui=True, with_obstacles=True)
 
@@ -34,9 +35,9 @@ file_exists = os.path.isfile(CSV_FILE)
 csv_file = open(CSV_FILE, mode="a", newline="")
 writer = csv.writer(csv_file)
 
-# Header (solo si no existe)
 if not file_exists:
     writer.writerow([
+        "method",
         "episode",
         "success",
         "episode_reward",
@@ -55,6 +56,7 @@ episode_lengths = []
 # EVALUATION LOOP
 # -------------------------------
 for ep in range(NUM_EPISODES):
+
     print(f"\n--- EPISODE {ep+1} ---")
 
     obs, _ = env.reset()
@@ -63,6 +65,7 @@ for ep in range(NUM_EPISODES):
     step = 0
     episode_reward = 0
     final_dist = None
+    success = 0
 
     while not done:
 
@@ -100,27 +103,27 @@ for ep in range(NUM_EPISODES):
             success_count += 1
             break
 
-        # TERMINATION
+        # TERMINATED
         if terminated:
             print(f"TERMINATED ⚠️ dist={dist:.3f}")
-            success = 0
             break
 
+        # TRUNCATED
         if truncated:
             print(f"TRUNCATED ❌ dist={dist:.3f}")
-            success = 0
             break
 
         step += 1
         time.sleep(1/48)
 
     # -------------------------------
-    # STORE METRICS
+    # STORE
     # -------------------------------
     all_rewards.append(episode_reward)
     episode_lengths.append(step)
 
     writer.writerow([
+        METHOD_NAME,
         ep,
         success,
         episode_reward,
@@ -138,12 +141,12 @@ avg_steps = np.mean(episode_lengths)
 reward_std = np.std(all_rewards)
 
 print("\n" + "="*50)
-print(f"RESULTS OVER {NUM_EPISODES} EPISODES")
+print(f"METHOD: {METHOD_NAME}")
 print(f"Success Rate: {success_rate * 100:.2f}%")
 print(f"Final Reward (mean): {final_reward:.2f}")
 print(f"Cumulative Reward: {cumulative_reward:.2f}")
 print(f"Avg Steps: {avg_steps:.2f}")
-print(f"Reward Std (stability): {reward_std:.2f}")
+print(f"Reward Std: {reward_std:.2f}")
 print("="*50)
 
 # -------------------------------

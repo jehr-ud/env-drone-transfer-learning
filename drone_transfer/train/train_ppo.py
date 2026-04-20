@@ -25,7 +25,8 @@ model = build_agent(env)
 # -------------------------------
 callback = TrainingLoggerCallback(
     save_freq=200000, 
-    save_path="./models/checkpoints/"
+    save_path="./models/checkpoints/",
+    name_algo="PPO"
 )
 
 # -------------------------------
@@ -33,7 +34,7 @@ callback = TrainingLoggerCallback(
 # -------------------------------
 print("Starting training...")
 model.learn(
-    total_timesteps=5_000_000,
+    total_timesteps=5000_000,
     progress_bar=True,
     tb_log_name="PPO_run_train",
     callback=callback
@@ -42,6 +43,6 @@ model.learn(
 # -------------------------------
 # 5. Save
 # -------------------------------
-model.save("models/ppo_drone_final")
+model.save("models/ppo_drone_simple")
 
 print("Training Complete!")

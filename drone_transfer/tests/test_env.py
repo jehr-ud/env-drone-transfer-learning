@@ -1,68 +1,104 @@
 import numpy as np
 import time
-from drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
+from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 
-env = MultiAgentObstacleEnv(gui=True)
-obs, info = env.reset()
 
-print("--- Test: Navegación hacia la meta ---")
+def run_test_episode(env, target_position, description):
+    print(f"\n--- Starting: {description} ---")
+    obs, _ = env.reset()
 
-reached_once = [False] * env.NUM_DRONES
+    target_pos_arr = np.array(target_position, dtype=np.float32)
 
-for step in range(2000):
+    # Detect if goal
+    is_env_goal = np.linalg.norm(target_pos_arr - env.goal) < 0.1
 
-    action = np.zeros((env.NUM_DRONES, 4), dtype=np.float32)
+    if not is_env_goal:
+        time.sleep(0.1)
+        env._highlightObstacle(target_pos_arr, color=[1, 1, 0, 1])
+        print(f"🟡 Highlighting obstacle at {target_position}")
 
-    for i in range(env.NUM_DRONES):
-        state = env._getDroneStateVector(i)
+    for step in range(1000):
+        state = env._getDroneStateVector(0)
         pos = state[0:3]
 
-        goal = env.goals[i]
+        # =========================
+        # TARGET ADJUSTMENT
+        # =========================
+        target = target_pos_arr.copy()
 
-        # -------------------------------
-        # DIRECCIÓN HACIA LA META
-        # -------------------------------
-        direction = goal - pos
+        if not is_env_goal:
+            # 💥 crash mode → prevent hover up
+            target[2] = pos[2]          # XY plane
+            target[1] += 0.2            # small offset → prevents perfect balance
+
+        # =========================
+        # DIRECTION
+        # =========================
+        direction = target - pos
         dist = np.linalg.norm(direction)
 
-        if dist > 1e-6:
-            direction = direction / dist
+        # =========================
+        # CONTROL
+        # =========================
+        if is_env_goal:
+            # 🎯 smooth mode (convergence)
+            if dist < 0.1:
+                action = np.zeros(4, dtype=np.float32)  # stop
+            else:
+                direction = direction / (dist + 1e-6)
+                action = np.zeros(4, dtype=np.float32)
+                action[0:3] = direction
+                action[3] = 0.6
 
-        # -------------------------------
-        # CONTROL SIMPLE (clave)
-        # -------------------------------
-        action[i, 0:3] = direction   # vx, vy, vz hacia meta
-        action[i, 3] = 0.8           # potencia
+        else:
+            # 💥 impact mode (aggressive)
+            direction[2] = 0
+            direction = np.sign(direction)
 
-        # -------------------------------
-        # DETECTAR LLEGADA (DEBUG)
-        # -------------------------------
-        if dist < 0.3 and not reached_once[i]:
-            reached_once[i] = True
-            print(f"✅ Drone {i} LLEGÓ a la meta en step {step}")
+            action = np.zeros(4, dtype=np.float32)
+            action[0:3] = direction
+            action[3] = 1.0
 
-    print(f"[DEBUG] action {action.flatten()}")
-    obs, reward, terminated, truncated, info = env.step(action.flatten())
+        # =========================
+        # STEP
+        # =========================
+        obs, reward, terminated, truncated, info = env.step(action)
 
-    if step % 20 == 0:
-        print(f"\nSTEP {step}")
-        for i in range(env.NUM_DRONES):
-            pos = env._getDroneStateVector(i)[0:3]
-            dist = np.linalg.norm(pos - env.goals[i])
-            print(f"Drone {i} -> dist_to_goal: {dist:.3f} | reached: {env.reached[i]}")
+        if step % 50 == 0:
+            print(f"Step {step} | Dist: {dist:.3f}")
 
-    env.render()
-    time.sleep(1 / env.CTRL_FREQ)
+        # =========================
+        # END CONDITIONS
+        # =========================
+        if terminated:
+            final_state = env._getDroneStateVector(0)
+            dist_to_goal = np.linalg.norm(final_state[0:3] - env.goal)
 
-    # -------------------------------
-    # FIN DEL EPISODIO
-    # -------------------------------
-    if terminated:
-        print("\n🎯 TODOS los drones llegaron a la meta")
-        break
+            if dist_to_goal < 0.32:
+                print(f"✅ SUCCESS (Dist: {dist_to_goal:.3f})")
+            else:
+                print(f"💥 CRASH (Dist to Goal: {dist_to_goal:.3f})")
+            break
 
-    if truncated:
-        print("\n⚠️ Episodio truncado")
-        break
+        if truncated:
+            print("🕒 TIME LIMIT")
+            break
 
-env.close()
+        time.sleep(1 / env.CTRL_FREQ)
+
+
+# =========================
+# MAIN
+# =========================
+if __name__ == "__main__":
+    env = SingleDroneEnv(gui=True, with_obstacles=True)
+
+    # 🎯 TEST 1: GOAL
+    run_test_episode(env, env.goal, "FLY TO GOAL")
+
+    # 💥 TEST 2: CRASH
+    if len(env.obstacles) > 2:
+        obstacle_pos = env.obstacles[2][0]
+        run_test_episode(env, obstacle_pos, "INTENTIONAL CRASH TEST")
+
+    env.close()
