@@ -7,18 +7,24 @@
     # Learn skills in simple environments
     # Transfer to an obstacle course environment
 
+echo "Cleaning old models and logs.."
+rm -rf models
+rm -rf logs
 
-#echo "Evaluation PPO (1/3)"
-#sh scripts/ppo/run_train.sh
-#sh scripts/ppo/run_test.sh
-#echo "Evaluation PPO (1/3) 👌"
+mkdir logs
 
-echo "Evaluation PPO Curriculum (2/3)"
+echo "Train PPO (1/3)"
+sh scripts/ppo/run_train.sh
+echo "Train PPO (1/3) 👌"
+
+echo "Train PPO Curriculum (2/3)"
 sh scripts/ppo/run_train_curriculum.sh
-sh scripts/ppo/run_test_curriculum.sh
-echo "Evaluation PPO Curriculum (2/3) 👌"
+echo "Train PPO Curriculum (2/3) 👌"
 
-#echo "Evaluation Plastic-transfer(3/3)"
-#sh scripts/plastic-transfer/run_train.sh
-#sh scripts/plastic-transfer/run_test.sh
-#echo "Evaluation Plastic-transfer(3/3) 👌"
+echo "Train Plastic-transfer(3/3)"
+sh scripts/plastic-transfer/run_train.sh
+echo "Train Plastic-transfer(3/3) 👌"
+
+# sh scripts/ppo/run_test.sh
+# sh scripts/ppo/run_test_curriculum.sh
+# sh scripts/plastic-transfer/run_test.sh

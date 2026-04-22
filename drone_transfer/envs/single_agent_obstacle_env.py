@@ -422,7 +422,7 @@ class SingleDroneEnv(BaseRLAviary):
         dist_to_goal = np.linalg.norm(pos - self.goal)
 
         # 1. TIME LIMIT: Maximum episode steps
-        if self.step_counter > 2000:
+        if self.step_counter > (2500 * len(self.obstacles)) :
             print("🕒 TRUNCATED: TIME LIMIT REACHED")
             return True
 
@@ -483,9 +483,6 @@ class SingleDroneEnv(BaseRLAviary):
     # =========================================================
     def reset(self, seed=None, options=None):
         obs, info = super().reset(seed=seed, options=options)
-
-        for body_id, _ in self.obstacle_ids:
-            p.removeBody(body_id, physicsClientId=self.CLIENT)
 
         self.obstacle_ids = []
 

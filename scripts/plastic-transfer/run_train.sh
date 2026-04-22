@@ -15,4 +15,5 @@ open http://localhost:6006
 echo "Launching training..."
 
 export PYTHONPATH=$PYTHONPATH:$(pwd)
+export KMP_DUPLICATE_LIB_OK=TRUE
 python -m drone_transfer.train.train_plastic_transfer

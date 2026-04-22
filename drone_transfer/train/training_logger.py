@@ -28,7 +28,7 @@ class TrainingLoggerCallback(BaseCallback):
     def _on_training_start(self):
         # CSV en vivo (mejor que guardar todo en RAM)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.csv_path = f"training_steps_{timestamp}_{self.name_algo}.csv"
+        self.csv_path = f"./logs/training_steps_{timestamp}_{self.name_algo}.csv"
 
         self.csv_file = open(self.csv_path, mode="w", newline="")
         self.csv_writer = csv.writer(self.csv_file)

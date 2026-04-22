@@ -11,7 +11,7 @@ from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 # -------------------------------
 # CONFIG
 # -------------------------------
-NUM_EPISODES = 20
+NUM_EPISODES = 100
 MODEL_PATH = "models/ppo_curriculum_final"
 
 CSV_FILE = "evaluation_comparison.csv"
@@ -20,7 +20,7 @@ METHOD_NAME = "ppo_curriculum"
 # -------------------------------
 # ENV (FINAL TASK)
 # -------------------------------
-env = SingleDroneEnv(gui=True, with_obstacles=True)
+env = SingleDroneEnv(gui=False, with_obstacles=True)
 
 # -------------------------------
 # LOAD MODEL

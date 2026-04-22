@@ -3,23 +3,25 @@ import os
 from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 from drone_transfer.agents.ppo_agent import build_agent
 from drone_transfer.train.training_logger import TrainingLoggerCallback
+from .vars import TOTAL_STEPS
 
 # -------------------------------
 # CONFIG
 # -------------------------------
-TOTAL_STEPS_PER_STAGE = 1_000_000
-
 os.makedirs("models", exist_ok=True)
 
 # -------------------------------
 # STAGES
 # -------------------------------
 stages = [
-    {"name": "easy", "difficulty": 0},
-    {"name": "medium", "difficulty": 1},
-    {"name": "hard", "difficulty": 2},
-    {"name": "final", "difficulty": 3}
+    {"name": "Easy", "difficulty": 0},
+    {"name": "Medium", "difficulty": 1},
+    {"name": "Hard", "difficulty": 2},
+    {"name": "Final", "difficulty": 3}
 ]
+
+
+TOTAL_STEPS_PER_STAGE = TOTAL_STEPS // len(stages)
 
 # -------------------------------
 # CREATE INITIAL ENV
@@ -41,19 +43,7 @@ for i, stage in enumerate(stages):
 
     # Create env
     env = SingleDroneEnv(gui=False, with_obstacles=True)
-
-    # 🔥 CONTROL REAL DE DIFICULTAD
-    if stage["difficulty"] == 0:
-        env.obstacles = []
-
-    elif stage["difficulty"] == 1:
-        env.obstacles = env.obstacles[:2]
-
-    elif stage["difficulty"] == 2:
-        env.obstacles = env.obstacles[:5]
-
-    elif stage["difficulty"] == 3:
-        pass  # full env
+    env.set_difficulty(stage["difficulty"])
 
     # Assign env
     model.set_env(env)
@@ -64,7 +54,7 @@ for i, stage in enumerate(stages):
     callback = TrainingLoggerCallback(
         save_freq=200000,
         save_path="./models/checkpoints/",
-        name_algo=f"PPO_CURRICULUM_{stage['name']}"
+        name_algo=f"PPO-Curriculum-{stage['name']}"
     )
 
     # -------------------------------
@@ -72,7 +62,7 @@ for i, stage in enumerate(stages):
     # -------------------------------
     model.learn(
         total_timesteps=TOTAL_STEPS_PER_STAGE,
-        reset_num_timesteps=False,  # 🔥 clave
+        reset_num_timesteps=False,
         progress_bar=True,
         callback=callback
     )

@@ -1,9 +1,10 @@
 import numpy as np
 import pybullet as p
 import time
+import json
 
 from plastic_transfer import PlasticTransfer
-from drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
+from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 from drone_transfer.agents.ppo_agent import build_agent
 
 # -------------------------------
@@ -16,7 +17,7 @@ MODEL_PATH = "models/plastic_transfer_model"
 # -------------------------------
 # ENV
 # -------------------------------
-env = MultiAgentObstacleEnv(gui=True, with_obstacles=True)
+env = SingleDroneEnv(gui=True, with_obstacles=True)
 
 
 # -------------------------------
@@ -24,11 +25,61 @@ env = MultiAgentObstacleEnv(gui=True, with_obstacles=True)
 # -------------------------------
 obs_sample, _ = env.reset()
 
+with open("drone_transfer/train/doc/plastic/learning_definitions.json", "r") as f:
+    learning_definitions = json.load(f)
+
+
+def build_obs_dict(obs):
+    return {
+        "goal_rel": obs[0:3],
+        "vel_norm": obs[3:6],
+        "rp": obs[6:8],
+        "yaw": obs[8:10],
+        "ang_vel_norm": obs[10:13],
+        "alignment": obs[13],
+        "dist": obs[14],
+        "rel_vec": obs[15:18],
+        "dist_norm": obs[18],
+        "size_norm": obs[19],
+    }
+
+
+def base_policy(obs):
+    goal = obs[0:3]
+    vel = obs[3:6]
+
+    direction = goal - vel
+
+    speed = np.linalg.norm(direction)
+    speed = np.clip(speed, 0.0, 1.0)
+
+    return np.array([
+        direction[0],
+        direction[1],
+        direction[2],
+        speed
+    ])
+
+
 pt = PlasticTransfer(
     env=env,
-    ppo_builder=build_agent,
+    model_builder=build_agent,
     hidden_size=128,
     latent_size=16,
+    novelty_threshold=0.2,
+    logger_path_file="plastic",
+    learning_definitions=learning_definitions,
+    obs_to_dict_fn=build_obs_dict,
+    base_policy_fn=base_policy,
+    observations_keys=[
+        "goal",
+        "velocity",
+        "attitude",
+        "yaw",
+        "angular_velocity",
+        "other",
+        "obstacles"
+    ]
 )
 
 pt.load(MODEL_PATH)
@@ -67,7 +118,7 @@ for ep in range(NUM_EPISODES):
 
         for i in range(env.NUM_DRONES):
             pos = env._getDroneStateVector(i)[0:3]
-            dist = np.linalg.norm(pos - env.goals[i])
+            dist = np.linalg.norm(pos - env.goal)
 
             current_dists.append(dist)
             current_positions.append(pos)
@@ -76,7 +127,7 @@ for ep in range(NUM_EPISODES):
 
             p.addUserDebugLine(
                 current_positions[i],
-                env.goals[i],
+                env.goal,
                 color,
                 lineWidth=2,
                 lifeTime=0.1,
@@ -89,17 +140,23 @@ for ep in range(NUM_EPISODES):
         if step % 50 == 0:
             print(f"Step {step} | reward {reward:.3f} | dist {np.round(current_dists,2)}")
 
-        # -------------------------------
-        # SUCCESS
-        # -------------------------------
-        if info.get("is_success", 0) == 1:
-            print(f"SUCCESS ✅ Distancias finales: {np.round(current_dists, 3)}")
-            success_count += 1
+        if terminated:
+            success = 0
+
+            final_state = env._getDroneStateVector(0)
+            dist_to_goal = np.linalg.norm(final_state[0:3] - env.goal)
+
+            if dist_to_goal < 0.32:
+                print(f"✅ SUCCESS (Dist: {dist_to_goal:.3f})")
+                success = 1
+                success_count += 1
+            else:
+                print(f"💥 CRASH (Dist to Goal: {dist_to_goal:.3f})")
             break
 
-        if done:
-            print(f"END ❌ Step {step}")
-            print(f"Distancias: {np.round(current_dists, 3)}")
+        if truncated:
+            print(f"TRUNCATED ❌ dist={dist:.3f}")
+            success = 0
             break
 
         step += 1

@@ -3,6 +3,7 @@ import os
 from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 from drone_transfer.agents.ppo_agent import build_agent
 from drone_transfer.train.training_logger import TrainingLoggerCallback
+from .vars import TOTAL_STEPS
 
 # -------------------------------
 # Create folders
@@ -34,7 +35,7 @@ callback = TrainingLoggerCallback(
 # -------------------------------
 print("Starting training...")
 model.learn(
-    total_timesteps=5000_000,
+    total_timesteps=TOTAL_STEPS,
     progress_bar=True,
     tb_log_name="PPO_run_train",
     callback=callback

@@ -1,4 +1,4 @@
-# Multi-Agent Drone Navigation Environment
+# Agent Drone Navigation Environment
 
 This repository contains a custom multi-agent reinforcement learning environment built on top of `gym-pybullet-drones`, designed for obstacle avoidance and goal-directed navigation using autonomous drones.
 

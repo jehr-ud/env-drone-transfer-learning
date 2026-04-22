@@ -1,6 +1,7 @@
 import time
 import csv
 import os
+from datetime import datetime
 
 import numpy as np
 import pybullet as p
@@ -11,15 +12,16 @@ from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 # -------------------------------
 # CONFIG
 # -------------------------------
-NUM_EPISODES = 20
+NUM_EPISODES = 100
 MODEL_PATH = "models/ppo_drone_simple"
 
-CSV_FILE = "evaluation_results.csv"
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+CSV_FILE = f"evaluation_results_PPO_{timestamp}.csv"
 
 # -------------------------------
 # ENV
 # -------------------------------
-env = SingleDroneEnv(gui=True, with_obstacles=True)
+env = SingleDroneEnv(gui=False, with_obstacles=True)
 
 # -------------------------------
 # LOAD MODEL
@@ -93,17 +95,19 @@ for ep in range(NUM_EPISODES):
         if step % 50 == 0:
             print(f"Step {step} | reward {reward:.3f} | dist {dist:.2f}")
 
-        # SUCCESS
-        if info.get("is_success", 0) == 1:
-            print(f"SUCCESS ✅ dist={dist:.3f}")
-            success = 1
-            success_count += 1
-            break
-
         # TERMINATION
         if terminated:
-            print(f"TERMINATED ⚠️ dist={dist:.3f}")
             success = 0
+
+            final_state = env._getDroneStateVector(0)
+            dist_to_goal = np.linalg.norm(final_state[0:3] - env.goal)
+
+            if dist_to_goal < 0.32:
+                print(f"✅ SUCCESS (Dist: {dist_to_goal:.3f})")
+                success = 1
+                success_count += 1
+            else:
+                print(f"💥 CRASH (Dist to Goal: {dist_to_goal:.3f})")
             break
 
         if truncated:
@@ -127,7 +131,7 @@ for ep in range(NUM_EPISODES):
         step,
         final_dist
     ])
-
+    csv_file.flush()
 # -------------------------------
 # FINAL METRICS
 # -------------------------------
