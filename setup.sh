@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e  # 🔥 para que falle si algo sale mal
+set -e
 
 echo "🔄 Activating conda env..."
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -47,10 +47,10 @@ echo "🚁 Installing gym-pybullet-drones..."
 pip install --no-deps git+https://github.com/utiasDSL/gym-pybullet-drones.git
 
 # -------------------------------
-# Your packages
+# Packages
 # -------------------------------
-echo "📦 Installing local packages..."
-pip install -e /Users/jorge/Documents/work-in-cloud/UD/PhD/plastic-transfer-learning
+git clone https://github.com/jehr-ud/plastic-transfer.git plastic-transfer-base
+pip install -e plastic-transfer-base
 pip install -e .
 
 # -------------------------------

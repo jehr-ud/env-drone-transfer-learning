@@ -1,9 +1,10 @@
-import numpy as np
-import pybullet as p
 import time
 import json
 
+import numpy as np
+import pybullet as p
 from plastic_transfer import PlasticTransfer
+
 from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 from drone_transfer.agents.ppo_agent import build_agent
 
@@ -101,7 +102,7 @@ for ep in range(NUM_EPISODES):
     while not done:
 
         # -------------------------------
-        # ACTION (IMPORTANTE)
+        # ACTION
         # -------------------------------
         action = pt.predict(obs)
 

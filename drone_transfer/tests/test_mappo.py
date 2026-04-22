@@ -1,8 +1,6 @@
 import os
 import numpy as np
 import pybullet as p
-import time
-import csv
 import torch
 
 from ray.rllib.core.rl_module.rl_module import RLModule
@@ -100,8 +98,5 @@ for ep in range(NUM_EPISODES):
             break
 
         step += 1
-
-        # if env.GUI:
-            # time.sleep(1/48)
 
 env.close()

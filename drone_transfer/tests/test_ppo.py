@@ -36,7 +36,7 @@ file_exists = os.path.isfile(CSV_FILE)
 csv_file = open(CSV_FILE, mode="a", newline="")
 writer = csv.writer(csv_file)
 
-# Header (solo si no existe)
+# Header
 if not file_exists:
     writer.writerow([
         "episode",

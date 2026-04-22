@@ -1,14 +1,14 @@
 # Agent Drone Navigation Environment
 
-This repository contains a custom multi-agent reinforcement learning environment built on top of `gym-pybullet-drones`, designed for obstacle avoidance and goal-directed navigation using autonomous drones.
+This repository contains a custom multi-agent and single agent reinforcement learning environment built on top of `gym-pybullet-drones`, designed for obstacle avoidance and goal-directed navigation using autonomous drones.
 
 The project includes:
 
 * Custom PyBullet drone environment
-* Multi-agent obstacle navigation
+* Multi-agent/Single obstacle navigation
 * PPO training pipeline
 * Visual goals and obstacles
-* Extensible architecture for transfer learning and future SNN-based agents
+* Extensible architecture for transfer learning and future agents
 
 ---
 
@@ -20,21 +20,22 @@ drone_transfer/
 ├── drone_transfer/
 │   ├── envs/
 │   │   └── multi_agent_obstacle_env.py
+│   │   └── single_agent_obstacle_env.py 
 │   │
 │   ├── agents/
 │   │   └── ppo_agent.py
 │   │
-│   └── train/
-│       └── train_ppo.py
+│   └── train/ scripts for agents*
+│   └── test/ scripts for agents*
 │
 ├── models/
 ├── logs/
-├── tests/
+├── scripts/
 │
 ├── requirements.txt
 ├── setup.py
 ├── setup.sh
-├── run_train.sh
+├── run_transfer_single.sh
 └── README.md
 ```
 
@@ -166,9 +167,6 @@ python tests/test_env.py
 
 ## Future Work
 
-* Transfer Learning
-* Curriculum Learning
-* Spiking Neural Networks
 * Dynamic obstacles
 * Cooperative multi-agent policies
 

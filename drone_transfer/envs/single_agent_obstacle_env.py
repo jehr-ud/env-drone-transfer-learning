@@ -401,7 +401,7 @@ class SingleDroneEnv(BaseRLAviary):
             aabb_min = np.array(aabb_min)
             aabb_max = np.array(aabb_max)
 
-            # Check: si el drone está dentro de la caja
+            # Check: if the drone is inside the box
             margin = 0.15  # size of the dron aprox
             if np.all(pos >= (aabb_min - margin)) and np.all(pos <= (aabb_max + margin)):
                 print(f"💥 TERMINATED: OBSTACLE COLLISION at {obs_pos}")
@@ -442,20 +442,20 @@ class SingleDroneEnv(BaseRLAviary):
         quat = state[3:7]
         vel = state[10:13]
         
-        # 1. Mapear acción a velocidad (Acción 0 a 3: VX, VY, VZ, Magnitud)
-        # En tu test, action[0:3] es la dirección normalizada.
+        # 1. Map action to velocity (Action 0 to 3: VX, VY, VZ, Magnitude)
+        # action[0:3] is the normalized direction.
         direction = action[0:3]
-        speed_scale = (action[3] + 1) / 2 # de 0 a 1
+        speed_scale = (action[3] + 1) / 2 # from 0 to 1
         
         target_vel = direction * self.MAX_SPEED * speed_scale
         
-        # 2. Limitar la velocidad para evitar que vuelque (Crucial)
+        # 2. Limiting speed to prevent rollover (Crucial)
         target_vel = np.clip(target_vel, -1.0, 1.0) 
 
-        # 3. Calcular posición objetivo suave (donde debería estar en el sig. frame)
+        # 3. Calculate soft target position (where it should be in the next frame)
         target_pos = pos + target_vel * self.CTRL_TIMESTEP
 
-        # 4. Control PID (Asegúrate de pasar el target_vel también)
+        # 4. PID Control
         rpm, _, _ = self.ctrl[0].computeControl(
             control_timestep=self.CTRL_TIMESTEP,
             cur_pos=pos,
@@ -463,7 +463,7 @@ class SingleDroneEnv(BaseRLAviary):
             cur_vel=vel,
             cur_ang_vel=state[13:16],
             target_pos=target_pos,
-            target_rpy=np.array([0, 0, state[9]]), # Mantener yaw actual
+            target_rpy=np.array([0, 0, state[9]]), # Maintain current yaw
             target_vel=target_vel
         )
 
