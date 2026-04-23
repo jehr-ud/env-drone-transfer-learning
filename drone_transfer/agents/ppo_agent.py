@@ -1,6 +1,6 @@
 from stable_baselines3 import PPO
 
-from drone_transfer.train.vars import N_STEPS
+from drone_transfer.config.vars import N_STEPS
 
 def build_agent(env):
     model = PPO(

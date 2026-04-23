@@ -8,11 +8,11 @@ import pybullet as p
 from stable_baselines3 import PPO
 
 from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
+from drone_transfer.config.vars import NUM_EPISODES_TEST
 
 # -------------------------------
 # CONFIG
 # -------------------------------
-NUM_EPISODES = 100
 MODEL_PATH = "models/ppo_drone_simple"
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -56,7 +56,7 @@ episode_lengths = []
 # -------------------------------
 # EVALUATION LOOP
 # -------------------------------
-for ep in range(NUM_EPISODES):
+for ep in range(NUM_EPISODES_TEST):
     print(f"\n--- EPISODE {ep+1} ---")
 
     obs, _ = env.reset()
@@ -135,14 +135,14 @@ for ep in range(NUM_EPISODES):
 # -------------------------------
 # FINAL METRICS
 # -------------------------------
-success_rate = success_count / NUM_EPISODES
+success_rate = success_count / NUM_EPISODES_TEST
 final_reward = np.mean(all_rewards)
 cumulative_reward = np.sum(all_rewards)
 avg_steps = np.mean(episode_lengths)
 reward_std = np.std(all_rewards)
 
 print("\n" + "="*50)
-print(f"RESULTS OVER {NUM_EPISODES} EPISODES")
+print(f"RESULTS OVER {NUM_EPISODES_TEST} EPISODES")
 print(f"Success Rate: {success_rate * 100:.2f}%")
 print(f"Final Reward (mean): {final_reward:.2f}")
 print(f"Cumulative Reward: {cumulative_reward:.2f}")

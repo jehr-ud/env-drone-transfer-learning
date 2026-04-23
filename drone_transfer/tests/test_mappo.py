@@ -5,12 +5,11 @@ import torch
 
 from ray.rllib.core.rl_module.rl_module import RLModule
 from drone_transfer.envs.multi_agent_obstacle_env import MultiAgentObstacleEnv
-
+from drone_transfer.config.vars import NUM_EPISODES_TEST
 
 # -------------------------------
 # CONFIG
 # -------------------------------
-NUM_EPISODES = 5
 CHECKPOINT_PATH = os.path.abspath("models/mappo_new")
 
 # -------------------------------
@@ -44,7 +43,7 @@ print("✅ Model loaded")
 # -------------------------------
 # LOOP
 # -------------------------------
-for ep in range(NUM_EPISODES):
+for ep in range(NUM_EPISODES_TEST):
 
     print(f"\n--- EPISODE {ep+1} ---")
 
@@ -63,7 +62,6 @@ for ep in range(NUM_EPISODES):
                 device=device
             ).unsqueeze(0)
 
-            # 🔥 inferencia directa
             out = rl_module.forward_inference({
                 "obs": obs_tensor
             })

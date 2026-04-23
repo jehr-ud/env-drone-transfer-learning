@@ -7,13 +7,13 @@ from plastic_transfer import PlasticTransfer
 
 from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 from drone_transfer.agents.ppo_agent import build_agent
+from drone_transfer.config.vars import NUM_EPISODES_TEST
 
 # -------------------------------
 # CONFIG
 # -------------------------------
-NUM_EPISODES = 5
-MODEL_PATH = "models/plastic_transfer_model"
 
+MODEL_PATH = "models/plastic_transfer_model"
 
 # -------------------------------
 # ENV
@@ -22,7 +22,7 @@ env = SingleDroneEnv(gui=True, with_obstacles=True)
 
 
 # -------------------------------
-# INIT MODEL (IMPORTANTE)
+# INIT MODEL (IMPORTANT)
 # -------------------------------
 obs_sample, _ = env.reset()
 
@@ -91,7 +91,7 @@ pt.load(MODEL_PATH)
 success_count = 0
 all_rewards = []
 
-for ep in range(NUM_EPISODES):
+for ep in range(NUM_EPISODES_TEST):
     print(f"\n--- EPISODE {ep+1} ---")
 
     obs, _ = env.reset()
@@ -170,8 +170,8 @@ for ep in range(NUM_EPISODES):
 # RESULTS
 # -------------------------------
 print("\n" + "="*30)
-print(f"RESULTS OVER {NUM_EPISODES} EPISODES")
-print(f"Success Rate: {success_count/NUM_EPISODES * 100:.1f}%")
+print(f"RESULTS OVER {NUM_EPISODES_TEST} EPISODES")
+print(f"Success Rate: {success_count/NUM_EPISODES_TEST * 100:.1f}%")
 print(f"Average Reward: {np.mean(all_rewards):.2f}")
 print("="*30)
 

@@ -4,7 +4,7 @@ import numpy as np
 from plastic_transfer import PlasticTransfer
 from drone_transfer.agents.ppo_agent import build_agent
 from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
-from .vars import TOTAL_STEPS
+from ..config.vars import TOTAL_STEPS
 
 env = SingleDroneEnv(gui=False, with_obstacles=True)
 

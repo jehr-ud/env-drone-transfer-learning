@@ -3,7 +3,7 @@ import os
 from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 from drone_transfer.agents.ppo_agent import build_agent
 from drone_transfer.train.training_logger import TrainingLoggerCallback
-from .vars import TOTAL_STEPS
+from ..config.vars import TOTAL_STEPS
 
 # -------------------------------
 # CONFIG
