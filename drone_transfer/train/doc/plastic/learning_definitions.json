@@ -1,205 +1,168 @@
 {
-    "task": "navigate_to_goal_with_obstacle_avoidance",
-    "skills": [
-        {
-            "order": 1,
-            "name": "perceive_goal_state",
-            "type": "perception",
-            "description": "Read relative goal vector and normalized distance.",
-            "inputs": [
-                "goal_rel",
-                "dist"
-            ],
-            "outputs": [
-                "goal_rel",
-                "dist"
-            ],
-            "trigger": "always",
-            "objective": "Provide goal direction and distance"
-        },
-        {
-            "order": 2,
-            "name": "perceive_motion_state",
-            "type": "perception",
-            "description": "Read velocity and alignment with goal direction.",
-            "inputs": [
-                "vel_norm",
-                "alignment"
-            ],
-            "outputs": [
-                "vel_norm",
-                "alignment"
-            ],
-            "trigger": "always",
-            "objective": "Measure effectiveness of motion toward goal"
-        },
-        {
-            "order": 3,
-            "name": "perceive_attitude_state",
-            "type": "perception",
-            "description": "Monitor roll, pitch, and angular velocity.",
-            "inputs": [
-                "rp",
-                "ang_vel_norm"
-            ],
-            "outputs": [
-                "rp",
-                "ang_vel_norm"
-            ],
-            "trigger": "always",
-            "objective": "Detect instability in orientation"
-        },
-        {
-            "order": 4,
-            "name": "perceive_obstacle_state",
-            "type": "perception",
-            "description": "Read relative position, distance, and size of obstacles.",
-            "inputs": [
-                "rel_vec",
-                "dist_norm",
-                "size_norm"
-            ],
-            "outputs": [
-                "rel_vec",
-                "dist_norm",
-                "size_norm"
-            ],
-            "trigger": "always",
-            "objective": "Identify nearby obstacles and collision risk"
-        },
-        {
-            "order": 5,
-            "name": "plan_goal_direction",
-            "type": "planning",
-            "description": "Maintain direction toward goal.",
-            "inputs": [
-                "goal_rel"
-            ],
-            "outputs": [
-                "goal_rel"
-            ],
-            "trigger": "always",
-            "objective": "Ensure movement toward goal"
-        },
-        {
-            "order": 6,
-            "name": "plan_avoidance_direction",
-            "type": "planning",
-            "description": "Adjust direction when obstacles are near.",
-            "inputs": [
-                "rel_vec",
-                "dist_norm",
-                "size_norm"
-            ],
-            "outputs": [
-                "rel_vec"
-            ],
-            "trigger": "dist_norm < 0.3",
-            "objective": "Increase distance from obstacles"
-        },
-        {
-            "order": 7,
-            "name": "plan_safe_direction",
-            "type": "planning",
-            "description": "Combine goal and avoidance directions.",
-            "inputs": [
-                "goal_rel",
-                "rel_vec",
-                "dist_norm"
-            ],
-            "outputs": [
-                "goal_rel"
-            ],
-            "trigger": "always",
-            "objective": "Balance safety and goal progress"
-        },
-        {
-            "order": 8,
-            "name": "control_stabilize",
-            "type": "control",
-            "description": "Stabilize drone when roll or pitch is high.",
-            "inputs": [
-                "rp",
-                "ang_vel_norm"
-            ],
-            "outputs": [
-                "vx",
-                "vy",
-                "vz"
-            ],
-            "trigger": "abs(rp[0]) > 0.2 or abs(rp[1]) > 0.2",
-            "objective": "Maintain stable orientation"
-        },
-        {
-            "order": 9,
-            "name": "control_avoid_obstacle",
-            "type": "control",
-            "description": "Move away from very close obstacles.",
-            "inputs": [
-                "rel_vec",
-                "dist_norm",
-                "size_norm"
-            ],
-            "outputs": [
-                "vx",
-                "vy",
-                "vz"
-            ],
-            "trigger": "dist_norm < 0.15",
-            "objective": "Prevent collision"
-        },
-        {
-            "order": 10,
-            "name": "control_align_to_goal",
-            "type": "control",
-            "description": "Adjust velocity to align with goal direction.",
-            "inputs": [
-                "goal_rel",
-                "vel_norm",
-                "alignment"
-            ],
-            "outputs": [
-                "vx",
-                "vy",
-                "vz"
-            ],
-            "trigger": "alignment < 0.8",
-            "objective": "Increase alignment toward goal"
-        },
-        {
-            "order": 11,
-            "name": "control_move_forward",
-            "type": "control",
-            "description": "Move toward goal when aligned and not close to goal.",
-            "inputs": [
-                "goal_rel",
-                "dist",
-                "alignment"
-            ],
-            "outputs": [
-                "vx",
-                "vy",
-                "vz"
-            ],
-            "trigger": "alignment >= 0.9 and dist > 0.1",
-            "objective": "Maximize forward progress"
-        },
-        {
-            "order": 12,
-            "name": "control_stop",
-            "type": "control",
-            "description": "Stop movement when close to goal.",
-            "inputs": [
-                "dist",
-                "vel_norm"
-            ],
-            "outputs": [
-                "vx",
-                "vy",
-                "vz"
-            ],
-            "trigger": "dist < 0.1",
-            "objective": "Stabilize at goal position"
-        }
-    ]
+  "task": "navigate_to_goal_with_obstacle_avoidance",
+  "skills": [
+    {
+      "order": 1,
+      "name": "perceive_goal_state",
+      "type": "perception",
+      "description": "Monitor relative goal position and distance.",
+      "inputs": [
+        {"key": "goal_rel", "score": 0.6},
+        {"key": "dist", "score": 0.4}
+      ],
+      "outputs": [
+        {"key": "vx"},
+        {"key": "vy"},
+        {"key": "vz"},
+        {"key": "ω_z"}
+      ],
+      "trigger": "always",
+      "objective": "Continuously track goal direction and proximity."
+    },
+    {
+      "order": 2,
+      "name": "perceive_obstacle_state",
+      "type": "perception",
+      "description": "Monitor nearest obstacle distance and relative position.",
+      "inputs": [
+        {"key": "dist_norm", "score": 0.7},
+        {"key": "goal_rel", "score": 0.3}
+      ],
+      "outputs": [
+        {"key": "vx"},
+        {"key": "vy"},
+        {"key": "vz"},
+        {"key": "ω_z"}
+      ],
+      "trigger": "always",
+      "objective": "Maintain awareness of nearby obstacles."
+    },
+    {
+      "order": 3,
+      "name": "evaluate_motion_alignment",
+      "type": "planning",
+      "description": "Evaluate alignment between velocity and goal direction.",
+      "inputs": [
+        {"key": "alignment", "score": 0.6},
+        {"key": "vel_norm", "score": 0.4}
+      ],
+      "outputs": [
+        {"key": "vx"},
+        {"key": "vy"},
+        {"key": "vz"},
+        {"key": "ω_z"}
+      ],
+      "trigger": "always",
+      "objective": "Determine if motion correction is required."
+    },
+    {
+      "order": 4,
+      "name": "stabilize_orientation",
+      "type": "control",
+      "description": "Correct unstable roll and pitch angles.",
+      "inputs": [
+        {"key": "rp", "score": 0.7},
+        {"key": "ang_vel_norm", "score": 0.3}
+      ],
+      "outputs": [
+        {"key": "vx"},
+        {"key": "vy"},
+        {"key": "vz"},
+        {"key": "ω_z"}
+      ],
+      "trigger": "abs(rp[0]) > 0.2 or abs(rp[1]) > 0.2",
+      "objective": "Maintain stable flight dynamics."
+    },
+    {
+      "order": 5,
+      "name": "emergency_obstacle_avoidance",
+      "type": "control",
+      "description": "Perform rapid avoidance when obstacle is very close.",
+      "inputs": [
+        {"key": "dist_norm", "score": 0.6},
+        {"key": "vel_norm", "score": 0.4}
+      ],
+      "outputs": [
+        {"key": "vx"},
+        {"key": "vy"},
+        {"key": "vz"},
+        {"key": "ω_z"}
+      ],
+      "trigger": "dist_norm < 0.15",
+      "objective": "Avoid imminent collision by immediate maneuver."
+    },
+    {
+      "order": 6,
+      "name": "preventive_obstacle_avoidance",
+      "type": "control",
+      "description": "Adjust trajectory when approaching an obstacle.",
+      "inputs": [
+        {"key": "dist_norm", "score": 0.6},
+        {"key": "alignment", "score": 0.4}
+      ],
+      "outputs": [
+        {"key": "vx"},
+        {"key": "vy"},
+        {"key": "vz"},
+        {"key": "ω_z"}
+      ],
+      "trigger": "dist_norm < 0.3 and dist_norm >= 0.15",
+      "objective": "Gradually steer away from obstacles."
+    },
+    {
+      "order": 7,
+      "name": "realign_heading_to_goal",
+      "type": "control",
+      "description": "Adjust yaw and velocity direction toward the goal.",
+      "inputs": [
+        {"key": "alignment", "score": 0.5},
+        {"key": "goal_rel", "score": 0.5}
+      ],
+      "outputs": [
+        {"key": "vx"},
+        {"key": "vy"},
+        {"key": "vz"},
+        {"key": "ω_z"}
+      ],
+      "trigger": "alignment < 0.8 and dist > 0.1",
+      "objective": "Improve heading alignment toward goal."
+    },
+    {
+      "order": 8,
+      "name": "cruise_to_goal",
+      "type": "control",
+      "description": "Move efficiently toward the goal when aligned and safe.",
+      "inputs": [
+        {"key": "goal_rel", "score": 0.4},
+        {"key": "alignment", "score": 0.3},
+        {"key": "dist", "score": 0.3}
+      ],
+      "outputs": [
+        {"key": "vx"},
+        {"key": "vy"},
+        {"key": "vz"},
+        {"key": "ω_z"}
+      ],
+      "trigger": "alignment >= 0.9 and dist >= 0.1 and dist_norm >= 0.3",
+      "objective": "Maximize forward progress toward goal."
+    },
+    {
+      "order": 9,
+      "name": "slow_approach_goal",
+      "type": "control",
+      "description": "Reduce velocity and stabilize near the goal.",
+      "inputs": [
+        {"key": "dist", "score": 0.6},
+        {"key": "vel_norm", "score": 0.4}
+      ],
+      "outputs": [
+        {"key": "vx"},
+        {"key": "vy"},
+        {"key": "vz"},
+        {"key": "ω_z"}
+      ],
+      "trigger": "dist < 0.1",
+      "objective": "Ensure precise arrival without overshooting."
+    }
+  ]
 }

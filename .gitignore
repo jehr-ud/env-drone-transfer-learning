@@ -96,3 +96,6 @@ ppo_drone_tensorboard/*
 
 
 plastic-transfer-base/*
+
+*.pdf
+*.png

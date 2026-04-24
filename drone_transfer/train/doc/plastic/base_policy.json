@@ -1,0 +1,40 @@
+{
+  "name": "goal_directed_policy",
+  "description": "Move toward goal using velocity compensation",
+  "inputs": [
+    {"name": "goal", "indices": [0, 3]},
+    {"name": "vel", "indices": [3, 6]}
+  ],
+  "intermediate": [
+    {
+      "name": "direction",
+      "type": "operation",
+      "op": "sub",
+      "inputs": ["goal", "vel"]
+    },
+    {
+      "name": "speed",
+      "type": "operation",
+      "op": "norm",
+      "inputs": ["direction"]
+    },
+    {
+      "name": "speed_clipped",
+      "type": "operation",
+      "op": "clip",
+      "inputs": ["speed"],
+      "params": {"min": 0.0, "max": 1.0}
+    }
+  ],
+  "outputs": [
+    {
+      "name": "action",
+      "components": [
+        {"source": "direction", "index": 0},
+        {"source": "direction", "index": 1},
+        {"source": "direction", "index": 2},
+        {"source": "speed_clipped", "index": null}
+      ]
+    }
+  ]
+}

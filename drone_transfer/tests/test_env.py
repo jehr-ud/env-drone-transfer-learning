@@ -1,6 +1,8 @@
 import numpy as np
 import time
 from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
+from drone_transfer.config.vars import ESCENARIOS_PLASTIC
+
 
 
 def run_test_episode(env, target_position, description):
@@ -91,14 +93,24 @@ def run_test_episode(env, target_position, description):
 # MAIN
 # =========================
 if __name__ == "__main__":
-    env = SingleDroneEnv(gui=True, with_obstacles=True)
 
-    # 🎯 TEST 1: GOAL
-    run_test_episode(env, env.goal, "FLY TO GOAL")
+    for escenario in ESCENARIOS_PLASTIC:
+        print(f"\n ****** TEST ENV in ENV {escenario.get('name_model')} ****** \n")
 
-    # 💥 TEST 2: CRASH
-    if len(env.obstacles) > 2:
-        obstacle_pos = env.obstacles[2][0]
-        run_test_episode(env, obstacle_pos, "INTENTIONAL CRASH TEST")
+        env = SingleDroneEnv(
+            gui=True,
+            obstacles=escenario.get("obstacles"),
+            goal=escenario.get("goal")
+        )
 
-    env.close()
+        # 🎯 TEST 1: GOAL
+        run_test_episode(env, env.goal, "FLY TO GOAL")
+
+        time.sleep(1)
+
+        # 💥 TEST 2: CRASH
+        if len(env.obstacles) > 2:
+            obstacle_pos = env.obstacles[2][0]
+            run_test_episode(env, obstacle_pos, "INTENTIONAL CRASH TEST")
+
+        env.close()

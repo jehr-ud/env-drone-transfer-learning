@@ -28,14 +28,12 @@ sh scripts/ppo/run_train.sh
 sh scripts/ppo/run_test.sh
 echo "Train and Test PPO (1/3) 👌"
 
-#echo "Train PPO Curriculum (2/3)"
+echo "Train Plastic-transfer(2/3)"
+sh scripts/plastic-transfer/run_train.sh
+sh scripts/plastic-transfer/run_test.sh
+echo "Train Plastic-transfer(2/3) 👌"
+
+#echo "Train PPO Curriculum (3/3)"
 #sh scripts/ppo/run_train_curriculum.sh
-# echo "Train PPO Curriculum (2/3) 👌"
-
-# echo "Train Plastic-transfer(3/3)"
-#sh scripts/plastic-transfer/run_train.sh
-# echo "Train Plastic-transfer(3/3) 👌"
-
-
-# sh scripts/ppo/run_test_curriculum.sh
-# sh scripts/plastic-transfer/run_test.sh
+#sh scripts/ppo/run_test_curriculum.sh
+#echo "Train PPO Curriculum (3/3) 👌"

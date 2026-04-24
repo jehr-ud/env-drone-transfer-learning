@@ -111,7 +111,10 @@ For each obstacle:
 
 ACTION SPACE:
 
-The agent outputs continuous motion control (vx, vy, vz).
+The agent outputs continuous motion control with four variables (vx, vy, vz, ω_z).
+The action space is defined as a 4-dimensional continuous vector:
+$a = (v_x, v_y, v_z, ω_z),
+where (v_x, v_y, v_z) represent linear velocities in 3D space, and ω_z corresponds to the yaw rate controlling the drone’s orientation.
 
 ---
 
@@ -137,8 +140,8 @@ Each skill must follow this format:
 "name": string,
 "type": "perception" | "planning" | "control",
 "description": string,
-"inputs": [list of observation variables],
-"outputs": [list of intermediate or action variables],
+"inputs": [list of dicts observation variables according with global observation, each dict must have key and score],
+"outputs": [list of action variables equals to global goal],
 "trigger": string,
 "objective": string
 }
@@ -161,6 +164,7 @@ CONSTRAINTS:
 * Use ONLY variables from the observation space
 * Skills must be modular and reusable
 * Avoid redundancy
+* Each skill must have inputs, the inputs must have score and key. The score, is for calculate the better skill according with the global observation. the score in each skill must sum 1
 * Include both goal-reaching and obstacle-avoidance behaviors
 
 ---

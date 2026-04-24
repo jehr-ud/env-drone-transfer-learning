@@ -23,6 +23,9 @@ class TrainingLoggerCallback(BaseCallback):
         self.csv_writer = None
         self.name_algo = name_algo
 
+        self.current_episode_reward = 0
+        self.current_episode_steps = 0
+
         os.makedirs(save_path, exist_ok=True)
 
     def _on_training_start(self):
@@ -32,18 +35,28 @@ class TrainingLoggerCallback(BaseCallback):
 
         self.csv_file = open(self.csv_path, mode="w", newline="")
         self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["step", "reward"])
+        self.csv_writer.writerow(["steps", "episode_reward"])
 
     def _on_step(self) -> bool:
         rewards = self.locals.get("rewards")
+        dones = self.locals.get("dones")
 
         if rewards is not None:
-            reward_value = float(rewards.mean())
+            self.current_episode_reward += float(rewards[0])
+            self.current_episode_steps += 1
 
+        # -------------------------------
+        # END OF EPISODE
+        # -------------------------------
+        if dones is not None and dones[0]:
             self.csv_writer.writerow([
                 self.num_timesteps,
-                reward_value
+                self.current_episode_reward
             ])
+
+            # reset
+            self.current_episode_reward = 0
+            self.current_episode_steps = 0
 
         # -------------------------------
         # CHECKPOINT

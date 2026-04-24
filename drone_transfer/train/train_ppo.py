@@ -1,49 +1,73 @@
 import os
 
+from stable_baselines3 import PPO
 from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 from drone_transfer.agents.ppo_agent import build_agent
 from drone_transfer.train.training_logger import TrainingLoggerCallback
-from ..config.vars import TOTAL_STEPS
+from ..config.vars import TOTAL_STEPS, ESCENARIOS_PPO
 
 # -------------------------------
 # Create folders
 # -------------------------------
 os.makedirs("models", exist_ok=True)
+os.makedirs("models/checkpoints", exist_ok=True)
 
 # -------------------------------
-# 1. Setup Env
+# LOOP OVER SCENARIOS
 # -------------------------------
-MODEL_PATH = "models/ppo_drone_final"
-env = SingleDroneEnv(gui=False, with_obstacles=True)
+for escenario in ESCENARIOS_PPO:
 
-# -------------------------------
-# 2. Setup Model
-# -------------------------------
-model = build_agent(env)
+    print("\n" + "="*50)
+    print(f"TRAINING PPO: {escenario['name_model']}")
+    print("="*50)
 
-# -------------------------------
-# 3. Callback
-# -------------------------------
-callback = TrainingLoggerCallback(
-    save_freq=200000, 
-    save_path="./models/checkpoints/",
-    name_algo="PPO"
-)
+    # -------------------------------
+    # ENV (nuevo por escenario)
+    # -------------------------------
+    env = SingleDroneEnv(
+        gui=False,
+        obstacles=escenario.get("obstacles"),
+        goal=escenario.get("goal")
+    )
 
-# -------------------------------
-# 4. Train
-# -------------------------------
-print("Starting training...")
-model.learn(
-    total_timesteps=TOTAL_STEPS,
-    progress_bar=True,
-    tb_log_name="PPO_run_train",
-    callback=callback
-)
+    model_path = f"models/{escenario['name_model']}"
 
-# -------------------------------
-# 5. Save
-# -------------------------------
-model.save("models/ppo_drone_simple")
+    # -------------------------------
+    # MODEL (scratch vs transfer)
+    # -------------------------------
+    if escenario.get("scratch"):
+        model = build_agent(env)
+    else:
+        source_path = f"models/{escenario['source_model']}"
+        model = PPO.load(source_path, env=env)
 
-print("Training Complete!")
+    # -------------------------------
+    # CALLBACK
+    # -------------------------------
+    callback = TrainingLoggerCallback(
+        save_freq=200000,
+        save_path="./models/checkpoints/",
+        name_algo=escenario["name_model"]
+    )
+
+    # -------------------------------
+    # TRAIN
+    # -------------------------------
+    model.learn(
+        total_timesteps=TOTAL_STEPS,
+        progress_bar=True,
+        tb_log_name=escenario["name_model"],
+        callback=callback
+    )
+
+    # -------------------------------
+    # SAVE
+    # -------------------------------
+    model.save(model_path)
+
+    # -------------------------------
+    # CLEAN
+    # -------------------------------
+    env.close()
+
+print("\n🚀 ALL PPO TRAINING COMPLETE!")

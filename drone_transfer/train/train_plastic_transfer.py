@@ -4,13 +4,13 @@ import numpy as np
 from plastic_transfer import PlasticTransfer
 from drone_transfer.agents.ppo_agent import build_agent
 from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
-from ..config.vars import TOTAL_STEPS
-
-env = SingleDroneEnv(gui=False, with_obstacles=True)
-
+from ..config.vars import TOTAL_STEPS, ESCENARIOS_PLASTIC, N_STEPS
 
 with open("drone_transfer/train/doc/plastic/learning_definitions.json", "r") as f:
     learning_definitions = json.load(f)
+
+with open("drone_transfer/train/doc/plastic/base_policy.json", "r") as f:
+    policy_config = json.load(f)
 
 
 def build_obs_dict(obs):
@@ -27,45 +27,34 @@ def build_obs_dict(obs):
         "size_norm": obs[19],
     }
 
+for escenario in ESCENARIOS_PLASTIC:
+    print(f"Training: {escenario['name_model']}")
+    path_model = f"models/{escenario.get('name_model')}"
 
-def base_policy(obs):
-    goal = obs[0:3]
-    vel = obs[3:6]
+    env = SingleDroneEnv(
+        gui=False,
+        obstacles=escenario.get("obstacles"),
+        goal=escenario.get("goal")
+    )
 
-    direction = goal - vel
+    pt = PlasticTransfer(
+        env=env,
+        model_builder=build_agent,
+        hidden_size=escenario.get("meta").get("plastic").get("hidden_size"),
+        latent_size=escenario.get("meta").get("plastic").get("latent_size"),
+        logger_path_file=escenario.get("name_model"),
+        learning_definitions=learning_definitions,
+        skill_train_steps = N_STEPS,
+        obs_to_dict_fn=build_obs_dict,
+        policy_config=policy_config,
+        debug=True
+    )
 
-    speed = np.linalg.norm(direction)
-    speed = np.clip(speed, 0.0, 1.0)
+    if not escenario.get("scratch"):
+        source_path = f"models/{escenario.get('source_model')}"
+        pt.load(source_path)
 
-    return np.array([
-        direction[0],
-        direction[1],
-        direction[2],
-        speed
-    ])
+    pt.learn(TOTAL_STEPS)
 
-
-pt = PlasticTransfer(
-    env=env,
-    model_builder=build_agent,
-    hidden_size=128,
-    latent_size=16,
-    novelty_threshold=0.2,
-    logger_path_file="plastic",
-    learning_definitions=learning_definitions,
-    skill_train_steps= TOTAL_STEPS / len(learning_definitions.get("skills")),
-    obs_to_dict_fn=build_obs_dict,
-    base_policy_fn=base_policy,
-    observations_keys=[
-        "goal",
-        "velocity",
-        "attitude",
-        "yaw",
-        "angular_velocity",
-        "other",
-        "obstacles"
-    ]
-)
-
-pt.learn(TOTAL_STEPS)
-pt.save("models/plastic_transfer_model")
+    pt.save(path_model)
+    env.close()

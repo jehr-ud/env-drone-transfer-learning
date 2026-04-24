@@ -12,20 +12,7 @@ class SingleDroneEnv(BaseRLAviary):
     def __init__(
             self,
             gui=False,
-            with_obstacles=False
-        ):
-
-        self.NUM_DRONES = 1
-
-        self.goal = np.array([2.5, 2.5, 1.5])
-
-        self.ctrl = [DSLPIDControl(drone_model=DroneModel.CF2X)]
-
-        self.obstacles = []
-        self.obstacle_ids = []
-
-        if with_obstacles:
-            self.obstacles = [
+            obstacles = [
                 # Position, Radius_RL, Size_PyBullet, Type
                 # CUBES (Radius = Size * 0.05)
                 ([0, 0, 1.5],     2, 3, "cube"),
@@ -43,7 +30,18 @@ class SingleDroneEnv(BaseRLAviary):
                 ([-2.0, 1.5, 2.0],  0.25, 2, "cylinder"),
                 ([0.8, 2.5, 2.0],   0.25, 2, "cylinder"),
                 ([-0.8, -2.5, 2.0], 0.25, 3, "cylinder")
-            ]
+            ],
+            goal=np.array([2.5, 2.5, 1.5])
+        ):
+
+        self.NUM_DRONES = 1
+
+        self.goal = goal
+        self.obstacles = obstacles
+
+        self.ctrl = [DSLPIDControl(drone_model=DroneModel.CF2X)]
+
+        self.obstacle_ids = []
 
         super().__init__(
             drone_model=DroneModel.CF2X,
@@ -91,7 +89,6 @@ class SingleDroneEnv(BaseRLAviary):
         for pos, size, color_idx, obstacle_type in self.obstacles:
 
             if obstacle_type == "cube":
-
                 obstacle_id = p.loadURDF(
                     "cube_small.urdf",
                     pos,
@@ -99,10 +96,20 @@ class SingleDroneEnv(BaseRLAviary):
                     physicsClientId=self.CLIENT
                 )
 
+                # Visual
                 p.changeVisualShape(
                     obstacle_id,
                     -1,
                     rgbaColor=[0.8, 0.2, 0.2, 1],
+                    physicsClientId=self.CLIENT
+                )
+
+                p.changeDynamics(
+                    obstacle_id,
+                    -1,
+                    mass=0,  # estático
+                    lateralFriction=1.0,
+                    restitution=0.0,
                     physicsClientId=self.CLIENT
                 )
 
@@ -308,7 +315,6 @@ class SingleDroneEnv(BaseRLAviary):
     # REWARD
     # =========================================================
     def _computeReward(self):
-
         state = self._getDroneStateVector(0)
 
         pos = state[0:3]
@@ -318,50 +324,94 @@ class SingleDroneEnv(BaseRLAviary):
         speed = np.linalg.norm(vel)
 
         # -------------------------
-        # PROGRESS
+        # PROGRESS (normalized)
         # -------------------------
         progress = self.prev_dist - dist
-        progress_r = 5.0 * progress
+        progress_norm = np.clip(progress / (self.MAX_DIST + 1e-6), -1.0, 1.0)
 
         # -------------------------
-        # DIRECTION
+        # DIRECTION (alignment)
         # -------------------------
         goal_dir = (self.goal - pos)
         goal_dir /= (np.linalg.norm(goal_dir) + 1e-6)
 
-        vel_dir = vel / (np.linalg.norm(vel) + 1e-6)
+        if speed < 0.05:
+            alignment = 0.0
+        else:
+            vel_dir = vel / (speed + 1e-6)
+            alignment = np.dot(goal_dir, vel_dir)
 
-        alignment = np.dot(goal_dir, vel_dir)
+        alignment_norm = np.clip(alignment, -1.0, 1.0)
 
         # -------------------------
-        # DISTANCE SHAPING
+        # DISTANCE (normalized)
         # -------------------------
-        dist_reward = 1.0 - np.clip(dist / self.MAX_DIST, 0, 1)
+        dist_norm = 1.0 - np.clip(dist / (self.MAX_DIST + 1e-6), 0.0, 1.0)
 
         # -------------------------
         # MOVEMENT
         # -------------------------
-        move_penalty = -0.2 if speed < 0.05 else 0.0
+        move_norm = -1.0 if speed < 0.05 else 1.0
 
         # -------------------------
         # GOAL
         # -------------------------
-        goal_bonus = 3.0 if dist < 0.3 else 0.0
+        goal_norm = 1.0 if dist < 0.3 else 0.0
+
+        # -------------------------
+        # OBSTACLES
+        # -------------------------
+        obstacle_penalty = 0.0
+        min_dist = float("inf")
+
+        for obs in self.obstacles:
+            obs_pos = np.array(obs[0])
+            obs_radius = obs[1]
+
+            d = np.linalg.norm(pos - obs_pos) - obs_radius
+            min_dist = min(min_dist, d)
+
+        if self.obstacles:
+            if min_dist < 0.5:
+                obstacle_penalty = - (1.0 - (np.clip(min_dist, 0, 0.5) / 0.5))**2
+
+            if min_dist < 0.15:
+                obstacle_penalty += -1.0
+
+        obstacle_norm = np.clip(obstacle_penalty, -1.0, 0.0)
 
         # -------------------------
         # TIME
         # -------------------------
-        time_penalty = -0.01
+        time_norm = -1.0  # constante
 
+        # -------------------------
+        # WEIGHTS (percentages)
+        # -------------------------
+        w = {
+            "progress": 0.35,
+            "alignment": 0.20,
+            "distance": 0.8,
+            "movement": 0.05,
+            "goal": 0.18,
+            "time": 0.05,
+            "obstacle": 0.10
+        }
+
+        # -------------------------
+        # FINAL REWARD
+        # -------------------------
         reward = (
-            progress_r
-            + 0.5 * alignment
-            + 0.5 * dist_reward
-            + move_penalty
-            + goal_bonus
-            + time_penalty
+            w["progress"] * progress_norm
+            + w["alignment"] * alignment_norm
+            + w["distance"] * dist_norm
+            + w["movement"] * move_norm
+            + w["goal"] * goal_norm
+            + w["time"] * time_norm
+            + w["obstacle"] * obstacle_norm
         )
 
+        # update state
         self.prev_dist = dist
 
         return reward
