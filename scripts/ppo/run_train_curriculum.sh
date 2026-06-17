@@ -15,4 +15,5 @@ conda activate drone_transfer
 echo "Launching training PPO Curriculum..."
 
 export PYTHONPATH=$PYTHONPATH:$(pwd)
+export KMP_DUPLICATE_LIB_OK=TRUE
 python -m drone_transfer.train.train_ppo_curriculum

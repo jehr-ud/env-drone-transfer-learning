@@ -11,7 +11,7 @@ from plastic_transfer import PlasticTransfer
 from drone_transfer.envs.single_agent_obstacle_env import SingleDroneEnv
 from drone_transfer.agents.ppo_agent import build_agent
 from drone_transfer.config.vars import NUM_EPISODES_TEST, ESCENARIOS_PLASTIC
-
+from drone_transfer.utils import build_obs_dict
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -20,15 +20,6 @@ timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 # -------------------------------
 with open("drone_transfer/train/doc/plastic/learning_definitions.json", "r") as f:
     learning_definitions = json.load(f)
-
-# -------------------------------
-# HELPERS
-# -------------------------------
-def build_obs_dict(obs):
-    return {
-        "alignment": obs[13],
-        "dist": obs[14],
-    }
 
 
 for escenario in ESCENARIOS_PLASTIC:

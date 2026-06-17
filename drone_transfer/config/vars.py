@@ -1,8 +1,15 @@
+import copy
+import random
+
 import numpy as np
 
 TOTAL_STEPS = 1_000_000
+
 N_STEPS = 2048
+N_STEPS_SKILLS = 256
 NUM_EPISODES_TEST = 100
+DECAY_PLASTIC_SCALE = TOTAL_STEPS * 0.3
+
 
 TRANSFER_CONFIG = {
     "simple": {
@@ -75,6 +82,74 @@ TRANSFER_CONFIG = {
 }
 
 
+def build_curriculum_scenarios(base_scenarios, method_name):
+
+    scenarios = []
+
+    curriculum_phases = ["exploration", "consolidation"]
+
+    for base in base_scenarios:
+
+        base_type = base["type"]
+
+        is_scratch = base["scratch"]
+
+        type_train = "scratch" if is_scratch else "transfer"
+
+        exploration_name = (
+            f"{method_name}_{base_type}_{type_train}_exploration"
+        )
+
+        consolidation_name = (
+            f"{method_name}_{base_type}_consolidation"
+        )
+
+        for phase_idx, phase_name in enumerate(curriculum_phases):
+
+            new_s = copy.deepcopy(base)
+
+            obstacles = new_s["obstacles"]
+
+            # ====================================
+            # EXPLORATION
+            # ====================================
+            if phase_name == "exploration":
+
+                n = max(1, int(len(obstacles) * 0.4))
+
+                new_s["obstacles"] = random.sample(obstacles, n)
+
+                new_s["name_model"] = exploration_name
+
+                new_s["scratch"] = True
+
+            # ====================================
+            # CONSOLIDATION
+            # ====================================
+            else:
+
+                new_s["obstacles"] = obstacles
+
+                new_s["name_model"] = consolidation_name
+
+                # IMPORTANTE
+                new_s["scratch"] = False
+
+                new_s["source_model"] = exploration_name
+
+            new_s["method"] = method_name
+
+            new_s["curriculum"] = {
+                "phase": phase_name,
+                "phase_idx": phase_idx,
+                "base_level": base_type
+            }
+
+            scenarios.append(new_s)
+
+    return scenarios
+
+
 def build_scenarios_for_method(base_scenarios, method_name):
     scenarios = []
 
@@ -136,13 +211,12 @@ ESCENARIOS_TRANSFER = [
         "goal": TRANSFER_CONFIG.get("complex").get("goal"),
         "meta": {
             "plastic": {
-                 "hidden_size": 64,
+                "hidden_size": 64,
                 "latent_size": 32,
             }
         }
     },
-
-     {
+    {
         "type": "medium",
         "scratch": False,
         "name_model": "medium_transfer",
@@ -151,7 +225,7 @@ ESCENARIOS_TRANSFER = [
         "goal": TRANSFER_CONFIG.get("medium").get("goal"),
         "meta": {
             "plastic": {
-                 "hidden_size": 64,
+                "hidden_size": 64,
                 "latent_size": 32,
             }
         }
@@ -165,11 +239,11 @@ ESCENARIOS_TRANSFER = [
         "goal": TRANSFER_CONFIG.get("complex").get("goal"),
         "meta": {
             "plastic": {
-                 "hidden_size": 64,
+                "hidden_size": 64,
                 "latent_size": 32,
             }
         }
-    },
+    }
 ]
 
 
@@ -183,7 +257,7 @@ ESCENARIOS_PPO = build_scenarios_for_method(
     "ppo"
 )
 
-ESCENARIOS_CURRICULUM = build_scenarios_for_method(
+ESCENARIOS_CURRICULUM_PPO = build_curriculum_scenarios(
     ESCENARIOS_TRANSFER,
-    "curriculum"
+    "Ppo-curriculum"
 )
