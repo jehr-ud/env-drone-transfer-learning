@@ -257,6 +257,11 @@ ESCENARIOS_PPO = build_scenarios_for_method(
     "ppo"
 )
 
+ESCENARIOS_SAC = build_scenarios_for_method(
+    ESCENARIOS_TRANSFER,
+    "sac"
+)
+
 ESCENARIOS_CURRICULUM_PPO = build_curriculum_scenarios(
     ESCENARIOS_TRANSFER,
     "Ppo-curriculum"

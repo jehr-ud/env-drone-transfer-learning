@@ -91,6 +91,9 @@ htmlcov/
 *.swo
 
 *.csv
+!analysis/data/test/**
+!analysis/data/train/**
+!analysis/data/**
 
 ppo_drone_tensorboard/*
 

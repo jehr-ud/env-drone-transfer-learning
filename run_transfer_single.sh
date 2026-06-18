@@ -23,17 +23,22 @@ fi
 
 mkdir logs
 
-echo "Train Plastic-transfer(1/3)"
+echo "Train Plastic-transfer(1/4)"
 sh scripts/plastic-transfer/run_train.sh
 sh scripts/plastic-transfer/run_test.sh
 echo "Train Plastic-transfer(1/3) 👌"
 
-echo "Train and Test PPO (2/3)"
+echo "Train and Test PPO (2/4)"
 sh scripts/ppo/run_train.sh
 sh scripts/ppo/run_test.sh
-echo "Train and Test PPO (2/3) 👌"
+echo "Train and Test PPO (2/4) 👌"
 
-echo "Train PPO Curriculum (3/3)"
+echo "Train PPO Curriculum (3/4)"
 sh scripts/ppo/run_train_curriculum.sh
 sh scripts/ppo/run_test_curriculum.sh
-echo "Train PPO Curriculum (3/3) 👌"
+echo "Train PPO Curriculum (3/4) 👌"
+
+echo "Train and Test sac (4/4)"
+sh scripts/sac/run_train.sh
+sh scripts/sac/run_test.sh
+echo "Train and Test SAC (4/4) 👌"
